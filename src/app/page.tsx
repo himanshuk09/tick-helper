@@ -9,7 +9,7 @@ type Tab = "tick-to-dt" | "dt-to-tick";
 
 export default function Home() {
 	const [activeTab, setActiveTab] = useState<Tab>("tick-to-dt");
-	const isSmall = window.innerWidth < 840;
+	
 	return (
 		<main
 			style={{
@@ -178,7 +178,7 @@ export default function Home() {
 					maxWidth: "1500px",
 					margin: "0 auto",
 					display: "grid",
-					gridTemplateColumns: isSmall ? "1fr" : "1fr 600px",
+					// gridTemplateColumns:"1fr 600px",
 					gap: "24px",
 					alignItems: "start",
 				}}

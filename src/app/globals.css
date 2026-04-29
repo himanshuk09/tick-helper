@@ -407,9 +407,13 @@ body::before {
 
 
 
+.responsive-grid {
+	grid-template-columns: 1fr; /* default = single column */
+}
+
 @media (min-width: 840px) {
 	.responsive-grid {
-		grid-template-columns: 1fr 600px;
+		grid-template-columns: 1fr 600px; /* desktop */
 	}
 }
 
