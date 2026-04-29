@@ -284,14 +284,14 @@ export default function Home() {
 				</div>
 
 				{/* Right: reference sidebar */}
-				{/* <div
+				<div
 					style={{
 						position: "sticky",
 						top: "24px",
 					}}
 				>
 					<ReferenceCard />
-				</div> */}
+				</div>
 			</div>
 
 			{/* Mobile responsive override */}
