@@ -3,12 +3,13 @@ import { useState } from "react";
 import TickToDateTime from "@/components/TickToDateTime";
 import DateTimeToTick from "@/components/DateTimeToTick";
 import ReferenceCard from "@/components/ReferenceCard";
+import Clock from "@/components/Clock";
 
 type Tab = "tick-to-dt" | "dt-to-tick";
 
 export default function Home() {
 	const [activeTab, setActiveTab] = useState<Tab>("tick-to-dt");
-
+	const isSmall = window.innerWidth < 840;
 	return (
 		<main
 			style={{
@@ -21,7 +22,7 @@ export default function Home() {
 			{/* Header */}
 			<header
 				style={{
-					maxWidth: "1100px",
+					maxWidth: "1500px",
 					margin: "0 auto",
 					padding: "40px 0 32px",
 				}}
@@ -40,16 +41,15 @@ export default function Home() {
 							width: "48px",
 							height: "48px",
 							borderRadius: "16px",
-							background:
-								"linear-gradient(135deg, #6750A4 0%, #0B6BCB 60%, #1B7F4F 100%)",
 							display: "flex",
 							alignItems: "center",
 							justifyContent: "center",
-							boxShadow: "0 4px 16px rgba(103,80,164,0.35)",
 							flexShrink: 0,
+							background: "#fff",
+							boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
 						}}
 					>
-						<svg
+						{/* <svg
 							width="26"
 							height="26"
 							viewBox="0 0 24 24"
@@ -61,7 +61,12 @@ export default function Home() {
 						>
 							<circle cx="12" cy="12" r="10" />
 							<polyline points="12 6 12 12 16 14" />
-						</svg>
+						</svg> */}
+						<Clock
+							style={{
+								filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.25))",
+							}}
+						/>
 					</div>
 					<div>
 						<h1
@@ -170,13 +175,14 @@ export default function Home() {
 			{/* Body */}
 			<div
 				style={{
-					maxWidth: "1100px",
+					maxWidth: "1500px",
 					margin: "0 auto",
 					display: "grid",
-					gridTemplateColumns: "1fr 360px",
+					gridTemplateColumns: isSmall ? "1fr" : "1fr 600px",
 					gap: "24px",
 					alignItems: "start",
 				}}
+				className="responsive-grid"
 			>
 				{/* Left: main converter */}
 				<div>
@@ -293,23 +299,6 @@ export default function Home() {
 					<ReferenceCard />
 				</div>
 			</div>
-
-			{/* Mobile responsive override */}
-			<style>{`
-        @media (max-width: 768px) {
-          main > div[style*="grid"] {
-            grid-template-columns: 1fr !important;
-          }
-          main > div[style*="grid"] > div:last-child {
-            position: static !important;
-          }
-        }
-        @media (max-width: 480px) {
-          header > div:first-child {
-            flex-wrap: wrap;
-          }
-        }
-      `}</style>
 		</main>
 	);
 }

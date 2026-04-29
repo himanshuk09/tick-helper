@@ -1,101 +1,7 @@
 "use client";
+import { FORMULAS, REFERENCE } from "@/lib/ticks";
 import { useState } from "react";
-const references = [
-	{
-		title: ".NET Ticks",
-		color: "#6750A4",
-		bg: "#F3EFF9",
-		epoch: "January 1, 0001 (CE), 00:00:00 UTC",
-		unit: "100 nanoseconds (0.1 microseconds)",
-		example: "638,500,000,000,000,000",
-		note: "Used by DateTime.Ticks in C#/.NET. Max value: 3,155,378,975,999,999,999",
-		dotnet: "DateTime.UtcNow.Ticks",
-		csharp: true,
-	},
-	{
-		title: "UTC Ticks",
-		color: "#0B6BCB",
-		bg: "#E3F2FD",
-		epoch: "January 1, 0001 (CE), 00:00:00 UTC",
-		unit: "100 nanoseconds (0.1 microseconds)",
-		example: "638,500,000,000,000,000",
-		note: "Identical to .NET Ticks when Kind is UTC. Common in distributed systems.",
-		dotnet: "DateTime.UtcNow.Ticks",
-		csharp: false,
-	},
-	{
-		title: "Unix Ticks",
-		color: "#1B7F4F",
-		bg: "#E6F4EA",
-		epoch: "January 1, 1970, 00:00:00 UTC (Unix Epoch)",
-		unit: "100 nanoseconds (0.1 microseconds)",
-		example: "17,250,000,000,000,000",
-		note: "High-resolution Unix time. 1 Unix tick = 100ns. Divide by 10,000,000 for seconds.",
-		dotnet: null,
-		csharp: false,
-	},
-	{
-		title: "Unix Timestamp",
-		color: "#FF6D00",
-		bg: "#FFF3E0",
-		epoch: "January 1, 1970, 00:00:00 UTC (Unix Epoch)",
-		unit: "Seconds",
-		example: "1777435920",
-		note: "Standard Unix time used in APIs and databases. 1 unit = 1 second. Multiply by 1000 for milliseconds.",
-		dotnet: "DateTimeOffset.UtcNow.ToUnixTimeSeconds()",
-		csharp: true,
-	},
-];
-const formulas = [
-	{
-		label: ".NET → Unix Ticks",
-		formula: "dotnetTicks - 621,355,968,000,000,000",
-	},
-	{
-		label: "Unix Ticks → .NET",
-		formula: "unixTicks + 621,355,968,000,000,000",
-	},
-	{
-		label: "Unix Ticks → Seconds",
-		formula: "unixTicks ÷ 10,000,000",
-	},
-	{
-		label: "Unix Seconds → Ticks",
-		formula: "seconds × 10,000,000",
-	},
-	{
-		label: "Unix Ticks → Milliseconds",
-		formula: "unixTicks ÷ 10,000",
-	},
-	{
-		label: "Unix ms → Ticks",
-		formula: "ms × 10,000",
-	},
-	{
-		label: "Unix Seconds → Milliseconds",
-		formula: "seconds × 1,000",
-	},
-	{
-		label: "Unix ms → Seconds",
-		formula: "ms ÷ 1,000",
-	},
-	{
-		label: "Unix Seconds → .NET Ticks",
-		formula: "seconds × 10,000,000 + 621,355,968,000,000,000",
-	},
-	{
-		label: ".NET Ticks → Unix Seconds",
-		formula: "(dotnetTicks - 621,355,968,000,000,000) ÷ 10,000,000",
-	},
-	{
-		label: "Unix ms → .NET Ticks",
-		formula: "ms × 10,000 + 621,355,968,000,000,000",
-	},
-	{
-		label: ".NET Ticks → Unix ms",
-		formula: "(dotnetTicks - 621,355,968,000,000,000) ÷ 10,000",
-	},
-];
+
 export default function ReferenceCard() {
 	const [tab, setTab] = useState<"ref" | "formula">("ref");
 	return (
@@ -106,7 +12,7 @@ export default function ReferenceCard() {
 					background: "white",
 					padding: "6px",
 					borderRadius: "16px",
-					marginBottom: "16px",
+					marginBottom: "24px",
 				}}
 				className="card"
 			>
@@ -145,7 +51,7 @@ export default function ReferenceCard() {
 					{" "}
 					<div
 						style={{
-							fontSize: "11px",
+							fontSize: "18px",
 							fontWeight: 700,
 							letterSpacing: "0.08em",
 							textTransform: "uppercase",
@@ -157,17 +63,13 @@ export default function ReferenceCard() {
 					</div>
 					<div
 						style={{
-							// display: "flex",
-							// flexDirection: "column",
-							// gap: "8px",
-
 							display: "grid",
 							gridTemplateColumns:
 								"repeat(auto-fit, minmax(280px, 1fr))",
 							gap: "16px",
 						}}
 					>
-						{references.map((ref) => (
+						{REFERENCE.map((ref) => (
 							<div
 								key={ref.title}
 								style={{
@@ -276,39 +178,57 @@ export default function ReferenceCard() {
 								{ref.dotnet && (
 									<div
 										style={{
-											marginTop: "12px",
-											padding: "8px 12px",
-											background: "rgba(255,255,255,0.7)",
-											borderRadius: "10px",
-											display: "flex",
-											gap: "8px",
-											alignItems: "center",
+											marginTop: "auto",
+											paddingTop: "12px",
 										}}
 									>
-										<span
+										<div
 											style={{
-												fontSize: "11px",
-												fontWeight: 600,
-												color: "var(--secondary)",
-												textTransform: "uppercase",
-												letterSpacing: "0.06em",
+												padding: "8px 12px",
+												background:
+													"rgba(255,255,255,0.7)",
+												borderRadius: "10px",
+												display: "flex",
+												gap: "8px",
+												alignItems: "center",
+												overflow: "hidden", // prevents layout break
 											}}
 										>
-											C#
-										</span>
-										<code
-											style={{
-												fontFamily: "var(--font-mono)",
-												fontSize: "12px",
-												color: ref.color,
-												fontWeight: 600,
-											}}
-										>
-											{ref.dotnet}
-										</code>
+											<span
+												style={{
+													fontSize: "11px",
+													fontWeight: 600,
+													color: "var(--secondary)",
+													textTransform: "uppercase",
+													letterSpacing: "0.06em",
+													flexShrink: 0, // prevents shrinking
+												}}
+											>
+												C#
+											</span>
+
+											<div
+												style={{
+													overflowX: "auto",
+													whiteSpace: "nowrap",
+													flex: 1,
+												}}
+											>
+												<code
+													style={{
+														fontFamily:
+															"var(--font-mono)",
+														fontSize: "12px",
+														color: ref.color,
+														fontWeight: 600,
+													}}
+												>
+													{ref.dotnet}
+												</code>
+											</div>
+										</div>
 									</div>
 								)}
-
 								<p
 									style={{
 										marginTop: "10px",
@@ -360,7 +280,7 @@ export default function ReferenceCard() {
 						</svg>
 						Conversion Formulas
 					</div>
-					{formulas.map((f) => (
+					{FORMULAS.map((f) => (
 						<div
 							key={f.label}
 							style={{

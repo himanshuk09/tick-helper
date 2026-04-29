@@ -17,7 +17,12 @@ export const DOTNET_EPOCH_OFFSET_TICKS = 621_355_968_000_000_000n;
 // Unix Tick: 100-nanosecond intervals since Jan 1, 1970 (Unix epoch)
 // Unix Timestamp (seconds): seconds since Jan 1, 1970
 
-export type TickType = "dotnet" | "utc" | "unix" | "unixSeconds";
+export type TickType =
+	| "dotnet"
+	| "utc"
+	| "unix"
+	| "unixSeconds"
+	| "unixMilliseconds";
 
 /**
  * Convert a JS Date to .NET ticks (100-ns intervals since Jan 1, 0001)
@@ -85,7 +90,8 @@ export function dateToTicks(date: Date, type: TickType): bigint {
 			return dateToUnixTicks(date);
 		case "unixSeconds":
 			return BigInt(Math.floor(date.getTime() / 1000)); // seconds
-
+		case "unixMilliseconds":
+			return BigInt(Math.floor(date.getTime())); // unixMilliseconds
 		default:
 			throw new Error(`Unsupported tick type: ${type}`);
 	}
@@ -104,7 +110,8 @@ export function ticksToDate(ticks: bigint, type: TickType): Date {
 			return unixTicksToDate(ticks);
 		case "unixSeconds":
 			return new Date(Number(ticks) * 1000);
-
+		case "unixMilliseconds":
+			return new Date(Number(ticks));
 		default:
 			throw new Error("Invalid tick type");
 	}
@@ -276,5 +283,131 @@ export const TICK_TYPES = [
 		color: "#FF6D00",
 		bg: "#FFF3E0",
 		example: "1777435920",
+	},
+	{
+		type: "unixMilliseconds" as TickType,
+		label: "Unix Timestamp (Milliseconds)",
+		short: "UTM",
+		description:
+			"Time in milliseconds since Jan 1, 1970 (common in JS & APIs)",
+		color: "#009688",
+		bg: "#E0F2F1",
+		example: "1777435920000",
+	},
+];
+
+export const REFERENCE = [
+	{
+		title: ".NET Ticks",
+		color: "#6750A4",
+		bg: "#F3EFF9",
+		epoch: "January 1, 0001 (CE), 00:00:00 UTC",
+		unit: "100 nanoseconds (0.1 microseconds)",
+		example: "638,500,000,000,000,000",
+		note: "Used by DateTime.Ticks in C#/.NET. Max value: 3,155,378,975,999,999,999",
+		dotnet: "DateTime.UtcNow.Ticks",
+		csharp: true,
+	},
+	{
+		title: "UTC Ticks",
+		color: "#0B6BCB",
+		bg: "#E3F2FD",
+		epoch: "January 1, 0001 (CE), 00:00:00 UTC",
+		unit: "100 nanoseconds (0.1 microseconds)",
+		example: "638,500,000,000,000,000",
+		note: "Identical to .NET Ticks when Kind is UTC. Common in distributed systems.",
+		dotnet: "DateTime.UtcNow.Ticks",
+		csharp: false,
+	},
+	{
+		title: "Unix Ticks",
+		color: "#1B7F4F",
+		bg: "#E6F4EA",
+		epoch: "January 1, 1970, 00:00:00 UTC (Unix Epoch)",
+		unit: "100 nanoseconds (0.1 microseconds)",
+		example: "17,250,000,000,000,000",
+		note: "High-resolution Unix time. 1 Unix tick = 100ns. Divide by 10,000,000 for seconds.",
+		dotnet: null,
+		csharp: false,
+	},
+	{
+		title: "Unix Timestamp",
+		color: "#FF6D00",
+		bg: "#FFF3E0",
+		epoch: "January 1, 1970, 00:00:00 UTC (Unix Epoch)",
+		unit: "Seconds",
+		example: "1777435920",
+		note: "Standard Unix time used in APIs and databases. 1 unit = 1 second. Multiply by 1000 for milliseconds.",
+		dotnet: "DateTimeOffset.UtcNow.ToUnixTimeSeconds()",
+		csharp: true,
+	},
+	{
+		title: "Unix Milliseconds",
+		color: "#009688",
+		bg: "#E0F2F1",
+		epoch: "January 1, 1970, 00:00:00 UTC (Unix Epoch)",
+		unit: "Milliseconds",
+		example: "1777435920000",
+		note: "Common in JavaScript (Date.now()). 1 unit = 1 millisecond.",
+		dotnet: "DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()",
+		csharp: true,
+	},
+];
+export const FORMULAS = [
+	{
+		label: ".NET → Unix Ticks",
+		formula: "dotnetTicks - 621,355,968,000,000,000",
+	},
+	{
+		label: "Unix Ticks → .NET",
+		formula: "unixTicks + 621,355,968,000,000,000",
+	},
+	{
+		label: "Unix Ticks → Seconds",
+		formula: "unixTicks ÷ 10,000,000",
+	},
+	{
+		label: "Unix Seconds → Ticks",
+		formula: "seconds × 10,000,000",
+	},
+	{
+		label: "Unix Ticks → Milliseconds",
+		formula: "unixTicks ÷ 10,000",
+	},
+	{
+		label: "Unix ms → Ticks",
+		formula: "ms × 10,000",
+	},
+	{
+		label: "Unix Seconds → Milliseconds",
+		formula: "seconds × 1,000",
+	},
+	{
+		label: "Unix ms → Seconds",
+		formula: "ms ÷ 1,000",
+	},
+	{
+		label: "Unix Seconds → .NET Ticks",
+		formula: "seconds × 10,000,000 + 621,355,968,000,000,000",
+	},
+	{
+		label: ".NET Ticks → Unix Seconds",
+		formula: "(dotnetTicks - 621,355,968,000,000,000) ÷ 10,000,000",
+	},
+	{
+		label: "Unix ms → .NET Ticks",
+		formula: "ms × 10,000 + 621,355,968,000,000,000",
+	},
+	{
+		label: ".NET Ticks → Unix ms",
+		formula: "(dotnetTicks - 621,355,968,000,000,000) ÷ 10,000",
+	},
+	{
+		label: "Unix ms → Date",
+		formula: "DateTimeOffset.FromUnixTimeMilliseconds(ms)",
+	},
+	{
+		label: "Date → Unix ms",
+		formula: "DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()",
 	},
 ];
