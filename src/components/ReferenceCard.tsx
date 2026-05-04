@@ -79,6 +79,7 @@ export default function ReferenceCard() {
 									border: `1px solid ${ref.color}20`,
 									// marginBottom: "16px",
 								}}
+								className="card"
 							>
 								<div
 									style={{
@@ -255,6 +256,7 @@ export default function ReferenceCard() {
 						border: "1px solid var(--outline-variant)",
 						paddingRight: "24px",
 					}}
+					className="card"
 				>
 					<div
 						style={{
