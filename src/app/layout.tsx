@@ -6,11 +6,9 @@ export const metadata: Metadata = {
 	description: "Convert between ticks and datetime with timezone support",
 };
 
-export default function RootLayout({
-	children,
-}: {
+const RootLayout = ({ children }: {
 	children: React.ReactNode;
-}) {
+}) => {
 	return (
 		<html lang="en">
 			<head>
@@ -18,7 +16,8 @@ export default function RootLayout({
 				<link rel="icon" href="/favicon-16x16.png" sizes="16x16" />
 				<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 			</head>
-			<body>{children}</body>
+			<body suppressHydrationWarning>{children}</body>
 		</html>
 	);
 }
+export default RootLayout

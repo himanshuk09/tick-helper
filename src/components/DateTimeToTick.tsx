@@ -13,7 +13,7 @@ function formatBigInt(n: bigint): string {
 	return n.toLocaleString("en-US");
 }
 
-export default function DateTimeToTick() {
+const DateTimeToTick = () => {
 	const [datetimeInput, setDatetimeInput] = useState("");
 	const [timezone, setTimezone] = useState("UTC");
 	const [result, setResult] = useState<{
@@ -21,6 +21,7 @@ export default function DateTimeToTick() {
 		utc: bigint;
 		unix: bigint;
 		unixSeconds: bigint;
+		unixMilliseconds: bigint;
 		date: Date;
 	} | null>(null);
 	const [error, setError] = useState("");
@@ -125,12 +126,14 @@ export default function DateTimeToTick() {
 			const utcTicks = dateToTicks(utcDate, "utc");
 			const unix = dateToUnixTicks(utcDate);
 			const unixSeconds = unixTicksToUnixTimestamp(unix);
+			const unixMilliseconds = BigInt(utcDate.getTime());
 
 			setResult({
 				dotnet,
 				utc: utcTicks,
 				unix,
 				unixSeconds,
+				unixMilliseconds,
 				date: utcDate,
 			});
 		} catch (e) {
@@ -338,7 +341,9 @@ export default function DateTimeToTick() {
 										? result.utc
 										: tt.type === "unix"
 											? result.unix
-											: result.unixSeconds;
+											: tt.type === "unixMilliseconds"
+												? result.unixMilliseconds
+												: result.unixSeconds;
 							const formatted = formatBigInt(value);
 							const raw = value.toString();
 							return (
@@ -464,3 +469,4 @@ export default function DateTimeToTick() {
 		</div>
 	);
 }
+export default DateTimeToTick

@@ -1,304 +1,175 @@
 "use client";
-import { useState } from "react";
-import TickToDateTime from "@/components/TickToDateTime";
-import DateTimeToTick from "@/components/DateTimeToTick";
-import ReferenceCard from "@/components/ReferenceCard";
-import Clock from "@/components/Clock";
+import NavCard from "@/components/NavCard";
 
-type Tab = "tick-to-dt" | "dt-to-tick";
-
-export default function Home() {
-	const [activeTab, setActiveTab] = useState<Tab>("tick-to-dt");
-	
+const Home = () => {
 	return (
-		<main
+		<div
+			suppressHydrationWarning
+			// className="animate-in"
 			style={{
+				minHeight: "100vh",
+				padding: "32px 20px",
 				position: "relative",
 				zIndex: 1,
-				minHeight: "100vh",
-				padding: "0 16px 80px",
 			}}
 		>
-			{/* Header */}
-			<header
+			<div
 				style={{
-					maxWidth: "1500px",
+					maxWidth: "1080px",
 					margin: "0 auto",
-					padding: "40px 0 32px",
+					display: "flex",
+					flexDirection: "column",
+					gap: "32px",
 				}}
 			>
-				<div
+				{/* Top Branding Navbar */}
+				<header
 					style={{
 						display: "flex",
 						alignItems: "center",
-						gap: "16px",
-						marginBottom: "12px",
+						justifyContent: "space-between",
+						borderBottom: "1px solid var(--outline-variant)",
+						paddingBottom: "20px",
 					}}
 				>
-					{/* Logo mark */}
-					<div
-						style={{
-							width: "48px",
-							height: "48px",
-							borderRadius: "16px",
-							display: "flex",
-							alignItems: "center",
-							justifyContent: "center",
-							flexShrink: 0,
-							background: "#fff",
-							boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
-						}}
-					>
-						{/* <svg
-							width="26"
-							height="26"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="white"
-							strokeWidth="2"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-						>
-							<circle cx="12" cy="12" r="10" />
-							<polyline points="12 6 12 12 16 14" />
-						</svg> */}
-						<Clock
+					<div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+						<div
 							style={{
-								filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.25))",
+								width: "38px",
+								height: "38px",
+								borderRadius: "10px",
+								background: "var(--primary)",
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "center",
+								color: "var(--on-primary)",
+								boxShadow: "var(--shadow)",
 							}}
-						/>
-					</div>
-					<div>
-						<h1
+						>
+							{/* Pulse / Time-Series Wave Icon */}
+							<svg
+								width="20"
+								height="20"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								strokeWidth="2.2"
+								strokeLinecap="round"
+								strokeLinejoin="round"
+							>
+								<path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+							</svg>
+						</div>
+						<span
 							style={{
-								fontFamily: "var(--font-display)",
-								fontSize: "26px",
+								fontSize: "20px",
 								fontWeight: 700,
 								color: "#1C1B1F",
-								lineHeight: 1.1,
+								fontFamily: "var(--font-display)",
 								letterSpacing: "-0.02em",
 							}}
 						>
-							Tick Helper
-						</h1>
-						<p
-							style={{
-								fontSize: "13px",
-								color: "var(--secondary)",
-								marginTop: "3px",
-							}}
-						>
-							.NET · UTC · Unix ticks with timezone support
-						</p>
-					</div>
-
-					{/* Live badge */}
-					<div
-						style={{
-							marginLeft: "auto",
-							display: "flex",
-							alignItems: "center",
-							gap: "6px",
-							padding: "5px 12px",
-							background: "var(--green-container)",
-							borderRadius: "100px",
-							fontSize: "12px",
-							fontWeight: 600,
-							color: "var(--green)",
-						}}
-					>
-						<div
-							className="pulse-dot"
-							style={{
-								width: "7px",
-								height: "7px",
-								borderRadius: "50%",
-								background: "var(--green)",
-							}}
-						/>
-						Live
-					</div>
-				</div>
-
-				{/* Pill row */}
-				<div
-					style={{
-						display: "flex",
-						flexWrap: "wrap",
-						gap: "8px",
-						marginTop: "16px",
-					}}
-				>
-					{[
-						{
-							label: ".NET Ticks",
-							color: "#6750A4",
-							bg: "#F3EFF9",
-						},
-						{ label: "UTC Ticks", color: "#0B6BCB", bg: "#E3F2FD" },
-						{
-							label: "Unix Ticks (ms)",
-							color: "#1B7F4F",
-							bg: "#E6F4EA",
-						},
-						{
-							label: "Unix Timestamp (sec)",
-							color: "#FF6D00",
-							bg: "#FFF3E0",
-						},
-						{
-							label: "Timezones",
-							color: "#B54708",
-							bg: "#FFDBC1",
-						},
-					].map((p) => (
-						<span
-							key={p.label}
-							className="pill"
-							style={{ background: p.bg, color: p.color }}
-						>
-							<span
-								style={{
-									width: "6px",
-									height: "6px",
-									borderRadius: "50%",
-									background: p.color,
-									display: "inline-block",
-								}}
-							/>
-							{p.label}
+							SyncTicks
 						</span>
-					))}
-				</div>
-			</header>
-
-			{/* Body */}
-			<div
-				style={{
-					maxWidth: "1500px",
-					margin: "0 auto",
-					display: "grid",
-					// gridTemplateColumns:"1fr 600px",
-					gap: "24px",
-					alignItems: "start",
-				}}
-				className="responsive-grid"
-			>
-				{/* Left: main converter */}
-				<div>
-					{/* Tab switcher */}
-					<div
-						className="card"
-						style={{
-							padding: "6px",
-							marginBottom: "24px",
-							display: "inline-flex",
-							borderRadius: "18px",
-						}}
-					>
-						{[
-							{
-								id: "tick-to-dt" as Tab,
-								label: "Tick → DateTime",
-								icon: "→",
-							},
-							{
-								id: "dt-to-tick" as Tab,
-								label: "DateTime → Tick",
-								icon: "←",
-							},
-						].map((tab) => (
-							<button
-								key={tab.id}
-								onClick={() => setActiveTab(tab.id)}
-								style={{
-									padding: "10px 24px",
-									borderRadius: "14px",
-									border: "none",
-									fontFamily: "var(--font-body)",
-									fontSize: "14px",
-									fontWeight: 600,
-									cursor: "pointer",
-									transition:
-										"all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)",
-									background:
-										activeTab === tab.id
-											? "var(--primary)"
-											: "transparent",
-									color:
-										activeTab === tab.id
-											? "white"
-											: "var(--secondary)",
-									boxShadow:
-										activeTab === tab.id
-											? "0 2px 10px rgba(103,80,164,0.3)"
-											: "none",
-								}}
-							>
-								{tab.label}
-							</button>
-						))}
 					</div>
 
-					{/* Converter panel */}
-					<div
-						className="card"
+					<span
+						className="pill"
 						style={{
-							padding: "28px",
-							borderRadius: "28px",
+							background: "var(--surface-1)",
+							color: "var(--secondary)",
+							border: "1px solid var(--outline-variant)",
 						}}
 					>
-						{/* Panel title */}
-						<div style={{ marginBottom: "24px" }}>
-							<h2
-								style={{
-									fontFamily: "var(--font-display)",
-									fontSize: "20px",
-									fontWeight: 700,
-									color: "#1C1B1F",
-									letterSpacing: "-0.01em",
-								}}
-							>
-								{activeTab === "tick-to-dt"
-									? "Convert Tick → DateTime"
-									: "Convert DateTime → Tick"}
-							</h2>
-							<p
-								style={{
-									fontSize: "13px",
-									color: "var(--secondary)",
-									marginTop: "4px",
-								}}
-							>
-								{activeTab === "tick-to-dt"
-									? "Enter a tick value and select the format to decode it into a human-readable date."
-									: "Pick a date and time to get all tick representations instantly."}
-							</p>
-						</div>
+						v2.0 Developer Tools
+					</span>
+				</header>
 
-						<div
-							className="divider"
-							style={{ marginBottom: "24px" }}
-						/>
-
-						{activeTab === "tick-to-dt" ? (
-							<TickToDateTime />
-						) : (
-							<DateTimeToTick />
-						)}
-					</div>
-				</div>
-
-				{/* Right: reference sidebar */}
-				<div
+				{/* Descriptive Hero Header */}
+				<section
 					style={{
-						position: "sticky",
-						top: "24px",
+						textAlign: "center",
+						maxWidth: "680px",
+						margin: "0 auto",
+						padding: "12px 0",
 					}}
 				>
-					<ReferenceCard />
-				</div>
+					<h1
+						style={{
+							fontSize: "36px",
+							fontWeight: 700,
+							color: "#1C1B1F",
+							margin: "0 0 12px 0",
+							fontFamily: "var(--font-display)",
+							letterSpacing: "-0.025em",
+						}}
+					>
+						High-Precision Time-Series &amp; Tick Hub
+					</h1>
+					<p
+						style={{
+							fontSize: "15px",
+							color: "var(--secondary)",
+							lineHeight: "1.6",
+							margin: 0,
+						}}
+					>
+						Generate customizable time-series CSV for integration testing, and decode high-precision 100-nanosecond ticks between standard timezones on the fly.
+					</p>
+				</section>
+
+				{/* Navigation Cards Grid */}
+				<main
+					style={{
+						display: "grid",
+						gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+						gap: "24px",
+					}}
+				>
+					{/* Card 1: Time-Series Generator */}
+					<NavCard
+						title="Time-Series CSV Generator"
+						tag="Data Seeding & Mocking"
+						tagBg="var(--primary-container)"
+						tagColor="var(--on-primary-container)"
+						description="Configure ranges, custom delimiters, intervals, and DST rules to export structured time-series datasets for system integration."
+						features={[
+							"Custom interval options (1m, 15m, 60m, Daily)",
+							"European (comma) & US (dot) localized formats",
+							"Random value range or static telemetry generation",
+						]}
+						buttonText="Open CSV Generator"
+						href="/timeseries"
+						icon={
+							<svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+								<path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M3 14h18M5 6h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z" />
+							</svg>
+						}
+					/>
+
+					{/* Card 2: .NET Ticks Helper */}
+					<NavCard
+						title=".NET Ticks Helper"
+						tag="Precision Conversion"
+						tagBg="var(--green-container)"
+						tagColor="var(--green)"
+						description="Convert high-precision 100-nanosecond 64-bit .NET ticks to UTC standard date formats and back without precision loss."
+						features={[
+							"Bidirectional 64-bit BigInt conversion (Ticks ↔ DateTime)",
+							"Preserves exact 100-ns tick precision for SQL & .NET",
+							"Instant copyable output with full ISO date strings",
+						]}
+						buttonText="Open Ticks Helper"
+						href="/ticks-helper"
+						icon={
+							<svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+								<path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+							</svg>
+						}
+					/>
+				</main>
 			</div>
-		</main>
+		</div>
 	);
 }
+export default Home
