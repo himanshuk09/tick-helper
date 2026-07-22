@@ -2,7 +2,7 @@
 import { FORMULAS, REFERENCE } from "@/lib/ticks";
 import { useState } from "react";
 
-export default function ReferenceCard() {
+const ReferenceCard = () => {
 	const [tab, setTab] = useState<"ref" | "formula">("ref");
 	return (
 		<>
@@ -320,3 +320,4 @@ export default function ReferenceCard() {
 		</>
 	);
 }
+export default ReferenceCard

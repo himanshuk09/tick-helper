@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-	title: "Tick-Helper — .NET · UTC · Unix",
+	title: "Sync Ticks",
 	description: "Convert between ticks and datetime with timezone support",
 };
 

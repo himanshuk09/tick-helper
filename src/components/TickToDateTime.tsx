@@ -9,7 +9,7 @@ import {
 } from "@/lib/ticks";
 import CopyButton from "./CopyButton";
 
-export default function TickToDateTime() {
+const TickToDateTime = () => {
 	const [tickInput, setTickInput] = useState("");
 	const [tickType, setTickType] = useState<TickType>("dotnet");
 	const [timezone, setTimezone] = useState("UTC");
@@ -402,12 +402,11 @@ export default function TickToDateTime() {
 						{[
 							// { label: "Local Time", value: result.formatted },
 							{
-								label: `Time (${
-									timezone === "local"
-										? Intl.DateTimeFormat().resolvedOptions()
-												.timeZone
-										: timezone
-								})`,
+								label: `Time (${timezone === "local"
+									? Intl.DateTimeFormat().resolvedOptions()
+										.timeZone
+									: timezone
+									})`,
 								value: result.formatted,
 							},
 							{ label: "ISO 8601", value: result.iso },
@@ -463,3 +462,4 @@ export default function TickToDateTime() {
 		</div>
 	);
 }
+export default TickToDateTime;
