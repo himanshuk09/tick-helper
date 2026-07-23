@@ -1,4 +1,5 @@
 "use client";
+import Clock from "@/components/Clock";
 import NavCard from "@/components/NavCard";
 
 const Home = () => {
@@ -35,30 +36,22 @@ const Home = () => {
 					<div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
 						<div
 							style={{
-								width: "38px",
-								height: "38px",
-								borderRadius: "10px",
-								background: "var(--primary)",
+								width: "48px",
+								height: "48px",
+								borderRadius: "16px",
 								display: "flex",
 								alignItems: "center",
 								justifyContent: "center",
-								color: "var(--on-primary)",
-								boxShadow: "var(--shadow)",
+								flexShrink: 0,
+								background: "#fff",
+								boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
 							}}
 						>
-							{/* Pulse / Time-Series Wave Icon */}
-							<svg
-								width="20"
-								height="20"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								strokeWidth="2.2"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-							>
-								<path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-							</svg>
+							<Clock
+								style={{
+									filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.25))",
+								}}
+							/>
 						</div>
 						<span
 							style={{
@@ -160,7 +153,7 @@ const Home = () => {
 							"Instant copyable output with full ISO date strings",
 						]}
 						buttonText="Open Ticks Helper"
-						href="/ticks-helper"
+						href="/tick-helper"
 						icon={
 							<svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
 								<path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />

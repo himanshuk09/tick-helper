@@ -39,14 +39,25 @@ export interface TimeseriesOptions {
 	randomValueMin: number;
 	randomValueMax: number;
 	fixedValue: number;
-	decimalPrecision:number;
+	decimalPrecision: number;
 }
 
+export const INTERVAL_OPTIONS = [
+	{ value: 15, label: "15m" },
+	{ value: 30, label: "30m" },
+	{ value: 60, label: "1h" },
+	{ value: 1440, label: "1d" },
+	{ value: 10080, label: "1w" },     // 7 days
+	{ value: 43200, label: "1M" },     // 30 days
+	{ value: 259200, label: "6M" },    // 180 days
+	{ value: 525600, label: "1Y" },    // 365 days
+];
+
 export const DEFAULT_TIMESERIES_OPTIONS: TimeseriesOptions = {
-	dateTimeFormat: "yyyy-MM-dd HH:mm",
+	dateTimeFormat: "yyyy-MM-dd HH:mm:ss",
 	dateFormat: "dd.MM.yyyy",
 	timeFormat: "HH:mm:ss",
-	separateDateTimeColumns: true,
+	separateDateTimeColumns: false,
 
 	csvSeparator: "\t",
 	decimalSeparator: ".",
@@ -55,9 +66,9 @@ export const DEFAULT_TIMESERIES_OPTIONS: TimeseriesOptions = {
 	endTimestamp: "2026-12-31T23:45:00",
 	intervalMinutes: 60,
 
-	timeZone: "Europe/Berlin",
+	timeZone: "UTC",
 
-	fileName: "Initial_prognosis_Co2_16_700_2026.csv",
+	fileName: "timeseries.csv",
 	outputFolder: "C:\\Sync-Output\\ts",
 
 	addHeader: true,
@@ -72,8 +83,8 @@ export const DEFAULT_TIMESERIES_OPTIONS: TimeseriesOptions = {
 	generateRandomValues: false,
 	randomValueMin: 0.0,
 	randomValueMax: 100.0,
-	fixedValue: 1.906392,
-	decimalPrecision:6
+	fixedValue: 0,
+	decimalPrecision: 6
 };
 
 /**
@@ -238,8 +249,15 @@ export function generateTimeseriesCsv(
 		lines.push(headerCols.join(sep));
 	}
 
-	let currentMs = startDate.getTime();
-	const endMs = endDate.getTime();
+	// let currentMs = startDate.getTime();
+	// const endMs = endDate.getTime();
+	let currentMs = DateTime.fromISO(options.startTimestamp, {
+		zone: options.timeZone,
+	});
+
+	const endMs = DateTime.fromISO(options.endTimestamp, {
+		zone: options.timeZone,
+	});
 	let previousFormattedTs = "";
 	let rowCount = 0;
 
@@ -247,7 +265,8 @@ export function generateTimeseriesCsv(
 	const maxRows = 100_000;
 
 	while (currentMs <= endMs && rowCount < maxRows) {
-		const dateObj = new Date(currentMs);
+		// const dateObj = new Date(currentMs);
+		const dateObj = currentMs.toJSDate();
 
 		let formattedTs = "";
 		if (options.separateDateTimeColumns) {
@@ -326,7 +345,62 @@ export function generateTimeseriesCsv(
 
 		lines.push(rowCols.join(sep));
 		rowCount++;
-		currentMs += intervalMs;
+		// currentMs += intervalMs;
+		// if (options.intervalMinutes % 1440 === 0) {
+		// 	currentMs = currentMs.plus({
+		// 		days: options.intervalMinutes / 1440,
+		// 	});
+		// } else {
+		// 	currentMs = currentMs.plus({
+		// 		minutes: options.intervalMinutes,
+		// 	});
+		// }
+		switch (options.intervalMinutes) {
+			case 15:
+			case 30:
+			case 60:
+				currentMs = currentMs.plus({
+					minutes: options.intervalMinutes,
+				});
+				break;
+
+			case 1440: // 1 Day
+				currentMs = currentMs.plus({
+					days: 1,
+				});
+				break;
+
+			case 10080: // 1 Week
+				currentMs = currentMs.plus({
+					weeks: 1,
+				});
+				break;
+
+			case 43200: // 1 Month
+				currentMs = currentMs.plus({
+					months: 1,
+				});
+				break;
+
+			case 259200: // 6 Months
+				currentMs = currentMs.plus({
+					months: 6,
+				});
+				break;
+
+			case 525600: // 1 Year
+				currentMs = currentMs.plus({
+					years: 1,
+				});
+				break;
+
+			default:
+				// Custom interval entered by the user
+				currentMs = currentMs.plus({
+					minutes: options.intervalMinutes,
+				});
+				break;
+		}
 	}
 
 	const csvContent = lines.join("\n");
@@ -346,61 +420,61 @@ export function generateTimeseriesCsv(
 
 
 export interface TimeSeriesRow {
-  timestamp: Date;
-  tick: number;
-  value: number;
-  isDSTAmbiguous: boolean;
-  isDSTSkipped: boolean;
+	timestamp: Date;
+	tick: number;
+	value: number;
+	isDSTAmbiguous: boolean;
+	isDSTSkipped: boolean;
 }
 
 export function generateTimeseriesCsv2(options: TimeseriesOptions): TimeSeriesRow[] {
-  const rows: TimeSeriesRow[] = [];
+	const rows: TimeSeriesRow[] = [];
 
-  const intervalMs = options.intervalMinutes * 60 * 1000;
+	const intervalMs = options.intervalMinutes * 60 * 1000;
 
-  let currentUtc = DateTime.fromISO(options.startTimestamp, {
-    zone: options.timeZone,
-  }).toUTC();
+	let currentUtc = DateTime.fromISO(options.startTimestamp, {
+		zone: options.timeZone,
+	}).toUTC();
 
-  const endUtc = DateTime.fromISO(options.endTimestamp, {
-    zone: options.timeZone,
-  }).toUTC();
+	const endUtc = DateTime.fromISO(options.endTimestamp, {
+		zone: options.timeZone,
+	}).toUTC();
 
-  const seenLocalTimes = new Set<string>();
+	const seenLocalTimes = new Set<string>();
 
-  while (currentUtc <= endUtc) {
-    const local = currentUtc.setZone(options.timeZone);
+	while (currentUtc <= endUtc) {
+		const local = currentUtc.setZone(options.timeZone);
 
-    // .NET ticks
-    const ticks =
-      BigInt(currentUtc.toMillis()) * 10000n + 621355968000000000n;
+		// .NET ticks
+		const ticks =
+			BigInt(currentUtc.toMillis()) * 10000n + 621355968000000000n;
 
-    const localKey = local.toFormat("yyyy-MM-dd HH:mm:ss");
+		const localKey = local.toFormat("yyyy-MM-dd HH:mm:ss");
 
-    // Luxon cannot directly detect ambiguous/invalid times
-    const isAmbiguous = seenLocalTimes.has(localKey);
-    const isInvalid = !local.isValid;
+		// Luxon cannot directly detect ambiguous/invalid times
+		const isAmbiguous = seenLocalTimes.has(localKey);
+		const isInvalid = !local.isValid;
 
-  
 
-    seenLocalTimes.add(localKey);
 
-    rows.push({
-      timestamp: local.toJSDate(),
-      tick: Number(ticks),
-      value: options.generateRandomValues
-        ? Math.random() *
-            (options.randomValueMax - options.randomValueMin) +
-          options.randomValueMin
-        : options.fixedValue,
-      isDSTAmbiguous: isAmbiguous,
-      isDSTSkipped: isInvalid,
-    });
+		seenLocalTimes.add(localKey);
 
-    currentUtc = currentUtc.plus({
-      minutes: options.intervalMinutes,
-    });
-  }
+		rows.push({
+			timestamp: local.toJSDate(),
+			tick: Number(ticks),
+			value: options.generateRandomValues
+				? Math.random() *
+				(options.randomValueMax - options.randomValueMin) +
+				options.randomValueMin
+				: options.fixedValue,
+			isDSTAmbiguous: isAmbiguous,
+			isDSTSkipped: isInvalid,
+		});
 
-  return rows;
+		currentUtc = currentUtc.plus({
+			minutes: options.intervalMinutes,
+		});
+	}
+
+	return rows;
 }

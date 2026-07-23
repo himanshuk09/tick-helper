@@ -297,6 +297,14 @@ body::before {
     }
 }
 
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
 .copy-flash {
     animation: copy-flash 0.4s ease forwards;
 }

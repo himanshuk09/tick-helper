@@ -6,43 +6,14 @@ import {
 	TimeseriesOptions,
 	DEFAULT_TIMESERIES_OPTIONS,
 	generateTimeseriesCsv,
+	INTERVAL_OPTIONS,
 } from "@/lib/timeseries";
 import CopyButton from "./CopyButton";
 import Switch from "./Switch";
 import FormatSelector, { DATE_FORMAT_PRESETS, DATETIME_FORMAT_PRESETS, TIME_FORMAT_PRESETS } from "./FormatSelector";
 
-
-// Fallback to default helper options from library if defined, or sensible defaults
-const INITIAL_OPTIONS: TimeseriesOptions = {
-	...DEFAULT_TIMESERIES_OPTIONS,
-	dateTimeFormat: DEFAULT_TIMESERIES_OPTIONS?.dateTimeFormat || "YYYY-MM-DD HH:mm:ss",
-	dateFormat: DEFAULT_TIMESERIES_OPTIONS?.dateFormat || "YYYY-MM-DD",
-	timeFormat: DEFAULT_TIMESERIES_OPTIONS?.timeFormat || "HH:mm:ss",
-	separateDateTimeColumns: false,
-	csvSeparator: DEFAULT_TIMESERIES_OPTIONS?.csvSeparator || ",",
-	decimalSeparator: DEFAULT_TIMESERIES_OPTIONS?.decimalSeparator || ".",
-	startTimestamp: "2026-01-01T00:00:00",
-	endTimestamp: "2026-12-31T23:45:00",
-	intervalMinutes: 60,
-	timeZone: DEFAULT_TIMESERIES_OPTIONS?.timeZone || "UTC",
-	fileName: "timeseries.csv",
-	outputFolder: "",
-	addHeader: true,
-	addTicks: false,
-	valueColumnName: "Value",
-	timestampColumnName: "Timestamp",
-	dateColumnName: "Date",
-	timeColumnName: "Time",
-	ticksColumnName: "Ticks",
-	generateRandomValues: false,
-	randomValueMin: 0,
-	randomValueMax: 100,
-	fixedValue: 0,
-	decimalPrecision: 6
-};
-
 const TimeseriesGenerator = () => {
-	const [options, setOptions] = useState<TimeseriesOptions>(INITIAL_OPTIONS);
+	const [options, setOptions] = useState<TimeseriesOptions>(DEFAULT_TIMESERIES_OPTIONS);
 	const [error, setError] = useState<string>("");
 	const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
@@ -143,7 +114,7 @@ const TimeseriesGenerator = () => {
 					<button
 						type="button"
 						onClick={() => {
-							setOptions(INITIAL_OPTIONS);
+							setOptions(DEFAULT_TIMESERIES_OPTIONS);
 							setResult(null);
 							setError("");
 						}}
@@ -225,14 +196,14 @@ const TimeseriesGenerator = () => {
 							Interval (Minutes)
 						</label>
 						<div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
-							<input
+							{/* <input
 								type="number"
 								min="1"
 								value={options.intervalMinutes}
 								onChange={(e) => updateOption("intervalMinutes", parseInt(e.target.value) || 1)}
 								style={{ width: "140px", flex: "0 0 140px", padding: "10px 12px", borderRadius: "10px", border: "1px solid var(--outline-variant)", fontFamily: "var(--font-mono)", fontSize: "13px", background: "white" }}
-							/>
-							{[15, 30, 60, 1440].map((m) => (
+							/> */}
+							{/* {[15, 30, 60, 1440].map((m) => (
 								<button
 									key={m}
 									type="button"
@@ -251,6 +222,74 @@ const TimeseriesGenerator = () => {
 									}}
 								>
 									{m >= 1440 ? `${m / 1440}d` : `${m}m`}
+								</button>
+							))} */}
+							<div style={{ position: "relative", width: "180px" }}>
+								<input
+									type="number"
+									min="1"
+									value={options.intervalMinutes}
+									onChange={(e) =>
+										updateOption(
+											"intervalMinutes",
+											parseInt(e.target.value) || 1
+										)
+									}
+									style={{
+										width: "100%",
+										padding: "10px 65px 10px 12px",
+										borderRadius: "10px",
+										border: "1px solid var(--outline-variant)",
+										fontFamily: "var(--font-mono)",
+										fontSize: "13px",
+										background: "white",
+									}}
+								/>
+
+								<span
+									style={{
+										position: "absolute",
+										right: "12px",
+										top: "50%",
+										transform: "translateY(-50%)",
+										color: "var(--secondary)",
+										fontSize: "12px",
+										pointerEvents: "none",
+										fontWeight: 500,
+									}}
+								>
+									minutes
+								</span>
+							</div>
+							{INTERVAL_OPTIONS.map((option) => (
+								<button
+									key={option.value}
+									type="button"
+									onClick={() => updateOption("intervalMinutes", option.value)}
+									style={{
+										minWidth: "55px",
+										height: "40px",
+										padding: "0 10px",
+										flexShrink: 0,
+										borderRadius: "10px",
+										border: `1px solid ${options.intervalMinutes === option.value
+											? "var(--primary)"
+											: "var(--outline-variant)"
+											}`,
+										background:
+											options.intervalMinutes === option.value
+												? "var(--primary-container)"
+												: "white",
+										color:
+											options.intervalMinutes === option.value
+												? "var(--on-primary-container)"
+												: "var(--secondary)",
+										fontSize: "12px",
+										fontWeight: 600,
+										cursor: "pointer",
+									}}
+								>
+									{option.label}
 								</button>
 							))}
 						</div>
@@ -273,17 +312,6 @@ const TimeseriesGenerator = () => {
 								))}
 							</select>
 						</div>
-					</div>
-					<div style={{ marginTop: "4px" }}>
-						<label style={{ fontSize: "11px", fontWeight: 600, color: "var(--secondary)", display: "block", marginBottom: "4px" }}>
-							Output File Name
-						</label>
-						<input
-							type="text"
-							value={options.fileName}
-							onChange={(e) => updateOption("fileName", e.target.value)}
-							style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--outline-variant)", fontFamily: "var(--font-mono)", fontSize: "13px", background: "white" }}
-						/>
 					</div>
 
 				</div>
@@ -547,6 +575,17 @@ const TimeseriesGenerator = () => {
 							/>
 						</div>
 					)}
+					<div style={{ marginTop: "4px" }}>
+						<label style={{ fontSize: "11px", fontWeight: 600, color: "var(--secondary)", display: "block", marginBottom: "4px" }}>
+							Output File Name
+						</label>
+						<input
+							type="text"
+							value={options.fileName}
+							onChange={(e) => updateOption("fileName", e.target.value)}
+							style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--outline-variant)", fontFamily: "var(--font-mono)", fontSize: "13px", background: "white" }}
+						/>
+					</div>
 
 
 				</div>
