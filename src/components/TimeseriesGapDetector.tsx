@@ -4,6 +4,7 @@ import CopyButton from "./CopyButton";
 import Switch from "./Switch";
 import { TIMEZONES } from "@/lib/ticks";
 import { secondsInDay } from "date-fns/constants";
+import { GAP_FILL_OPTIONS } from "@/lib/timeseries";
 
 interface GapRange {
     start: DateTime;
@@ -58,7 +59,10 @@ const TimeseriesGapDetector = () => {
         timeSpanEnd: DateTime;
     } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-
+    const [enableGapFill, setEnableGapFill] = useState(false);
+    const [fillGapOption, setFillGapOption] = useState(1);
+    const [gapFilledValue, setGapFilledValue] = useState("");
+    const [filledCsv, setFilledCsv] = useState<string | null>(null);
     const handleReset = () => {
         // File
         setFile(null);
@@ -285,7 +289,11 @@ const TimeseriesGapDetector = () => {
         setSummary(null);
         setDetectedGaps([]);
         setDstWarning("");
-
+        setFilledCsv("");
+        setEnableGapFill(false)
+        setFillGapOption(1)
+        setGapFilledValue('')
+        debugger;
         const reader = new FileReader();
         reader.onload = (event) => {
             const text = event.target?.result as string;
@@ -916,6 +924,173 @@ const TimeseriesGapDetector = () => {
         URL.revokeObjectURL(url);
     };
 
+    ///------
+    const generateGapFilledCsv = () => {
+        if (!csvRows.length) return;
+
+        const tsIdx = separateDateTime
+            ? -1
+            : csvHeaders.indexOf(timestampCol);
+
+        const dateIdx = separateDateTime
+            ? csvHeaders.indexOf(dateCol)
+            : -1;
+
+        const timeIdx = separateDateTime
+            ? csvHeaders.indexOf(timeCol)
+            : -1;
+
+        const parseRowDate = (row: string[]) => {
+            let value = "";
+
+            if (separateDateTime) {
+                value = `${row[dateIdx]} ${row[timeIdx]}`;
+            } else {
+                value = row[tsIdx];
+            }
+
+            return parseDateValue(value); // Your existing parser
+        };
+
+        const interval = { [intervalUnit]: intervalQuantity };
+
+        const outputRows: string[][] = [];
+
+        for (let i = 0; i < csvRows.length - 1; i++) {
+
+            const current = csvRows[i];
+            const next = csvRows[i + 1];
+
+            outputRows.push([...current]);
+
+            const currentTime = parseRowDate(current);
+            const nextTime = parseRowDate(next);
+
+            if (
+                currentTime === null ||
+                nextTime === null ||
+                !currentTime.isValid ||
+                !nextTime.isValid
+            ) {
+                continue;
+            }
+
+            let expected = currentTime.plus(interval);
+
+            while (expected < nextTime) {
+
+                let newRow: string[];
+
+                switch (fillGapOption) {
+
+                    // Fill with Zero
+                    case 1:
+                        newRow = current.map((_, index) => {
+
+                            if (
+                                (!separateDateTime && index === tsIdx) ||
+                                (separateDateTime &&
+                                    (index === dateIdx || index === timeIdx))
+                            )
+                                return "";
+
+                            return "0";
+                        });
+                        break;
+
+                    // Fill with Custom Value
+                    case 2:
+                        newRow = current.map((_, index) => {
+
+                            if (
+                                (!separateDateTime && index === tsIdx) ||
+                                (separateDateTime &&
+                                    (index === dateIdx || index === timeIdx))
+                            )
+                                return "";
+
+                            return gapFilledValue;
+                        });
+                        break;
+
+                    // Previous Value
+                    case 3:
+                        newRow = [...current];
+                        break;
+
+                    // Next Value
+                    case 4:
+                        newRow = [...next];
+                        break;
+
+                    case 5:
+                        newRow = current.map((value, index) => {
+
+                            // Skip timestamp/date/time columns
+                            if (
+                                (!separateDateTime && index === tsIdx) ||
+                                (separateDateTime && (index === dateIdx || index === timeIdx))
+                            ) {
+                                return "";
+                            }
+
+                            const prev = Number(current[index]);
+                            const nextVal = Number(next[index]);
+
+                            // Average only if both values are numeric
+                            if (!isNaN(prev) && !isNaN(nextVal)) {
+                                return ((prev + nextVal) / 2).toString();
+                            }
+
+                            // If not numeric, keep previous value
+                            return current[index];
+                        });
+                        break;
+                    default:
+                        newRow = [...current];
+                }
+
+                // Write timestamp
+
+                if (separateDateTime) {
+                    newRow[dateIdx] = expected.toFormat(customSeparateDateFormat || "yyyy-MM-dd");
+                    newRow[timeIdx] = expected.toFormat(customTimeFormat || "HH:mm");
+                } else {
+                    newRow[tsIdx] = expected.toFormat(customDateFormat || "yyyy-MM-dd HH:mm");
+                }
+
+                outputRows.push(newRow);
+
+                expected = expected.plus(interval);
+            }
+        }
+
+        outputRows.push(csvRows[csvRows.length - 1]);
+
+        const csv = [
+            csvHeaders.join(delimiter),
+            ...outputRows.map(r => r.join(delimiter))
+        ].join("\n");
+
+        setFilledCsv(csv);
+    };
+    const downloadFilledCsv = () => {
+        if (!filledCsv) return;
+
+        const blob = new Blob([filledCsv], {
+            type: "text/csv;charset=utf-8;",
+        });
+
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "gap_filled.csv";
+        a.click();
+
+        URL.revokeObjectURL(url);
+    };
+    ///------
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
             {/* Header */}
@@ -1106,6 +1281,94 @@ const TimeseriesGapDetector = () => {
                             </div>
                         </div>
                     )}
+                    {detectedGaps.length > 0 && (<div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                        <Switch
+                            label="Enable Gap Filling"
+                            description="Generate a new time-series with missing timestamps filled."
+                            checked={enableGapFill}
+                            onChange={setEnableGapFill}
+                        />
+
+                        {enableGapFill && (
+                            <>
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        gap: "12px",
+                                        flexWrap: "wrap",
+                                        alignItems: "center",
+                                    }}
+                                >
+                                    <select
+                                        value={fillGapOption}
+                                        onChange={(e) => setFillGapOption(Number(e.target.value))}
+
+                                        style={{
+                                            flex: "0 0 50%",
+                                            maxWidth: "50%",
+                                            minWidth: "220px",
+                                            padding: "10px 12px",
+                                            borderRadius: "10px",
+                                            border: "1px solid var(--outline-variant)",
+                                            fontSize: "13px",
+                                            background: "white",
+                                        }}
+                                    >
+                                        {GAP_FILL_OPTIONS.map((option) => (
+                                            <option key={option.value} value={option.value}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    {fillGapOption === 2 && (
+                                        <input
+                                            type="number"
+                                            value={gapFilledValue}
+                                            onChange={(e) => setGapFilledValue(e.target.value)}
+                                            placeholder="Enter fill value"
+                                            style={{
+                                                flex: "1 1 220px",
+                                                minWidth: "180px",
+                                                padding: "10px 14px",
+                                                borderRadius: "10px",
+                                                border: "1px solid var(--outline-variant)",
+                                                fontFamily: "var(--font-mono)",
+                                                fontSize: "13px",
+                                                background: "white",
+                                            }}
+                                        />
+                                    )}
+                                </div>
+
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "flex-end",
+                                    }}
+                                >
+                                    <button
+                                        onClick={generateGapFilledCsv}
+                                        style={{
+                                            padding: "10px 25px",
+                                            borderRadius: "14px",
+                                            border: "none",
+                                            background: "var(--primary)",
+                                            color: "white",
+                                            fontSize: "14px",
+                                            fontWeight: 600,
+                                            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "8px",
+                                        }}
+                                    >
+                                        Fill Gaps
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>)}
                 </div>
 
                 {/* Column Mappings & Expected Frequency */}
@@ -1278,6 +1541,7 @@ const TimeseriesGapDetector = () => {
                         </div>
                     </div>
                 )}
+
             </div>
 
             {/* Analysis Action */}
@@ -1487,20 +1751,57 @@ const TimeseriesGapDetector = () => {
                                         </div>
 
                                         <div style={{ display: "flex", gap: "10px" }}>
-                                            <CopyButton text={gapsCsvContent} />
-                                            <button
-                                                type="button"
-                                                onClick={handleDownloadGaps}
-                                                className="btn-primary"
-                                                style={{ padding: "10px 20px", background: "var(--primary)" }}
-                                            >
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                                    <polyline points="7 10 12 15 17 10" />
-                                                    <line x1="12" y1="15" x2="12" y2="3" />
-                                                </svg>
-                                                Download Gaps CSV
-                                            </button>
+                                            {!filledCsv ? (
+                                                <>
+                                                    <CopyButton text={gapsCsvContent} />
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleDownloadGaps}
+                                                        className="btn-primary"
+                                                        style={{ padding: "10px 20px", background: "var(--primary)" }}
+                                                    >
+                                                        <svg
+                                                            width="16"
+                                                            height="16"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                        >
+                                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                            <polyline points="7 10 12 15 17 10" />
+                                                            <line x1="12" y1="15" x2="12" y2="3" />
+                                                        </svg>
+                                                        Download Gaps CSV
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <CopyButton text={filledCsv} />
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={downloadFilledCsv}
+                                                        className="btn-primary"
+                                                        style={{ padding: "10px 20px", background: "var(--primary)" }}
+                                                    >
+                                                        <svg
+                                                            width="16"
+                                                            height="16"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                        >
+                                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                            <polyline points="7 10 12 15 17 10" />
+                                                            <line x1="12" y1="15" x2="12" y2="3" />
+                                                        </svg>
+                                                        Download Gap-Filled CSV
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
 

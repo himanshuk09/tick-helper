@@ -52,7 +52,19 @@ export const INTERVAL_OPTIONS = [
 	{ value: 259200, label: "6M" },    // 180 days
 	{ value: 525600, label: "1Y" },    // 365 days
 ];
-
+export const GAP_FILL_OPTIONS = [
+	{ value: 1, label: "Fill with Zero" },
+	{ value: 2, label: "Fill with Value" },
+	{ value: 3, label: "Fill with Previous Value" },
+	{ value: 4, label: "Fill with Next Value" },
+	{ value: 5, label: "Average Previous & Next" },
+	// { value: 6, label: "Previous Day Value" },
+	// { value: 7, label: "Next Day Value" },
+	// { value: 8, label: "Average Previous & Next Day" },
+	// { value: 9, label: "Previous Week Value" },
+	// { value: 10, label: "Next Week Value" },
+	// { value: 11, label: "Average Previous & Next Week" },
+] as const;
 export const DEFAULT_TIMESERIES_OPTIONS: TimeseriesOptions = {
 	dateTimeFormat: "yyyy-MM-dd HH:mm:ss",
 	dateFormat: "dd.MM.yyyy",
