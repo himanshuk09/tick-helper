@@ -2,11 +2,12 @@
 import { useState } from "react";
 import TickToDateTime from "@/components/TickToDateTime";
 import DateTimeToTick from "@/components/DateTimeToTick";
+import TimespanTicks from "@/components/TimespanTicks";
 import ReferenceCard from "@/components/ReferenceCard";
 import Clock from "@/components/Clock";
 import { useRouter } from "next/navigation";
 
-type Tab = "tick-to-dt" | "dt-to-tick";
+type Tab = "tick-to-dt" | "dt-to-tick" | "timespan-ticks";
 
 const TickHelper = () => {
     const [activeTab, setActiveTab] = useState<Tab>("tick-to-dt");
@@ -243,6 +244,11 @@ const TickHelper = () => {
                                 label: "DateTime → Tick",
                                 icon: "←",
                             },
+                            {
+                                id: "timespan-ticks" as Tab,
+                                label: "Timespan Ticks",
+                                icon: "⏱",
+                            },
                         ].map((tab) => (
                             <button
                                 key={tab.id}
@@ -297,7 +303,9 @@ const TickHelper = () => {
                             >
                                 {activeTab === "tick-to-dt"
                                     ? "Convert Tick → DateTime"
-                                    : "Convert DateTime → Tick"}
+                                    : activeTab === "dt-to-tick"
+                                        ? "Convert DateTime → Tick"
+                                        : "Timespan Ticks Calculator"}
                             </h2>
                             <p
                                 style={{
@@ -308,7 +316,9 @@ const TickHelper = () => {
                             >
                                 {activeTab === "tick-to-dt"
                                     ? "Enter a tick value and select the format to decode it into a human-readable date."
-                                    : "Pick a date and time to get all tick representations instantly."}
+                                    : activeTab === "dt-to-tick"
+                                        ? "Pick a date and time to get all tick representations instantly."
+                                        : "Calculate tick counts from standard C# TimeSpan fields and custom modifiers."}
                             </p>
                         </div>
 
@@ -319,8 +329,10 @@ const TickHelper = () => {
 
                         {activeTab === "tick-to-dt" ? (
                             <TickToDateTime />
-                        ) : (
+                        ) : activeTab === "dt-to-tick" ? (
                             <DateTimeToTick />
+                        ) : (
+                            <TimespanTicks />
                         )}
                     </div>
                 </div>

@@ -1,8 +1,19 @@
 "use client";
+import { useEffect, useState } from "react";
 import Clock from "@/components/Clock";
 import NavCard from "@/components/NavCard";
 
 const Home = () => {
+	const [mounted, setMounted] = useState(false);
+
+	useEffect(() => {
+		setMounted(true);
+	}, []);
+
+	if (!mounted) {
+		return null;
+	}
+
 	return (
 		<div
 			suppressHydrationWarning
@@ -115,7 +126,8 @@ const Home = () => {
 				<main
 					style={{
 						display: "grid",
-						gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+						// gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+						gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
 						gap: "24px",
 					}}
 				>
@@ -157,6 +169,36 @@ const Home = () => {
 						icon={
 							<svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
 								<path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+							</svg>
+						}
+					/>
+					<NavCard
+						title="Product Price"
+						tag="Market Price Lookup"
+						tagBg="var(--primary-container)"
+						tagColor="var(--on-primary-container)"
+						description="Retrieve and explore product prices from the market price service with configurable energy types, product types, trading facilities, price types, and quality options."
+						features={[
+							"Select energy type, product type, trading facility, and price type",
+							"Retrieve settlement and other available product prices directly from the service",
+							"View product price data with clear values, dates, and product details",
+						]}
+						buttonText="Open Product Price"
+						href="https://web-services-fetcher.vercel.app/"
+						icon={
+							<svg
+								width="24"
+								height="24"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								strokeWidth="2"
+							>
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									d="M12 8c-2.21 0-4 1.12-4 2.5S9.79 13 12 13s4 1.12 4 2.5S14.21 18 12 18m0-12v12m0-14v2m0 12v2m7-8a7 7 0 11-14 0 7 7 0 0114 0z"
+								/>
 							</svg>
 						}
 					/>
