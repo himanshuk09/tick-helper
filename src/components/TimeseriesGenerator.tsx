@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { TIMEZONES } from "@/lib/ticks";
 import {
 	TimeseriesOptions,
@@ -12,7 +12,7 @@ import CopyButton from "./CopyButton";
 import Switch from "./Switch";
 import FormatSelector, { DATE_FORMAT_PRESETS, DATETIME_FORMAT_PRESETS, TIME_FORMAT_PRESETS } from "./FormatSelector";
 
-const TimeseriesGenerator = () => {
+const TimeseriesGenerator1 = () => {
 	const [options, setOptions] = useState<TimeseriesOptions>(DEFAULT_TIMESERIES_OPTIONS);
 	const [error, setError] = useState<string>("");
 	const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -734,5 +734,1719 @@ const TimeseriesGenerator = () => {
 		</div>
 	);
 }
+
+const TimeseriesGenerator = () => {
+	const [options, setOptions] = useState<TimeseriesOptions>(
+		DEFAULT_TIMESERIES_OPTIONS,
+	);
+	const [error, setError] = useState<string>("");
+	const [isGenerating, setIsGenerating] = useState<boolean>(false);
+
+	// Custom Row Output Pattern states
+	const [rowTemplate, setRowTemplate] = useState<string>("");
+	const [isCustomTemplate, setIsCustomTemplate] = useState<boolean>(false);
+
+	// Stores the generated result on-demand
+	const [result, setResult] = useState<ReturnType<
+		typeof generateTimeseriesCsv
+	> | null>(null);
+
+	const updateOption = useCallback(
+		<K extends keyof TimeseriesOptions>(
+			key: K,
+			val: TimeseriesOptions[K],
+		) => {
+			setOptions((prev) => ({ ...prev, [key]: val }));
+			setError("");
+		},
+		[],
+	);
+
+	// Helper: Convert csvSeparator to readable token & display label
+	const getSeparatorInfo = useCallback((sep: string) => {
+		if (sep === "\t" || sep === "\\t") {
+			return { char: "\t", token: "{tab}", label: "TAB-SEPARATED" };
+		}
+		if (sep === ",")
+			return { char: ",", token: ",", label: "COMMA-SEPARATED" };
+		if (sep === ";")
+			return { char: ";", token: ";", label: "SEMICOLON-SEPARATED" };
+		return { char: sep, token: sep, label: `DELIMITER: "${sep}"` };
+	}, []);
+
+	// Helper: Build default template dynamically from current `options`
+	const buildDefaultTemplate = useCallback(
+		(opts: TimeseriesOptions) => {
+			const { token } = getSeparatorInfo(opts.csvSeparator);
+			const parts: string[] = [];
+
+			if (opts.separateDateTimeColumns) {
+				parts.push(`{${opts.dateFormat}}`, `{${opts.timeFormat}}`);
+			} else {
+				parts.push(`{${opts.dateTimeFormat}}`);
+			}
+
+			if (opts.addTicks) {
+				parts.push("{ticks}");
+			}
+
+			parts.push("{value}");
+			return parts.join(token);
+		},
+		[getSeparatorInfo],
+	);
+
+	// Auto-sync pattern input whenever options change (unless user manually edited it)
+	useEffect(() => {
+		if (!isCustomTemplate) {
+			setRowTemplate(buildDefaultTemplate(options));
+		}
+	}, [
+		options.csvSeparator,
+		options.separateDateTimeColumns,
+		options.dateFormat,
+		options.timeFormat,
+		options.dateTimeFormat,
+		options.addTicks,
+		isCustomTemplate,
+		buildDefaultTemplate,
+		options,
+	]);
+
+	// Format a single date/time string according to a pattern (yyyy, MM, dd, HH, mm, ss, fff)
+	const formatByPattern = useCallback(
+		(
+			pattern: string,
+			parts: {
+				yyyy: string;
+				MM: string;
+				dd: string;
+				HH: string;
+				mm: string;
+				ss: string;
+				fff: string;
+				unixSeconds: string;
+				unixMs: string;
+				ticks: string;
+				iso: string;
+			},
+		) => {
+			const lower = pattern.toLowerCase();
+			if (lower === "unix_s" || lower === "unix" || lower === "epoch")
+				return parts.unixSeconds;
+			if (lower === "unix_ms" || lower === "epoch_ms")
+				return parts.unixMs;
+			if (lower === "ticks" || lower === "dotnet_ticks")
+				return parts.ticks;
+			if (lower === "iso" || lower === "iso8601") return parts.iso;
+
+			return pattern
+				.replace(/yyyy/g, parts.yyyy)
+				.replace(/MM/g, parts.MM)
+				.replace(/dd/g, parts.dd)
+				.replace(/HH/g, parts.HH)
+				.replace(/mm/g, parts.mm)
+				.replace(/ss/g, parts.ss)
+				.replace(/fff/g, parts.fff);
+		},
+		[],
+	);
+
+	// Compute timestamp parts directly from options.startTimestamp without local timezone shift
+	const sampleTimestampParts = useMemo(() => {
+		let yyyy = "2026";
+		let MM = "01";
+		let dd = "01";
+		let HH = "00";
+		let mm = "00";
+		let ss = "00";
+
+		const match = (options.startTimestamp || "").match(
+			/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?/,
+		);
+		if (match) {
+			[, yyyy, MM, dd, HH, mm, ss = "00"] = match;
+		}
+
+		const utcMs = Date.UTC(
+			Number(yyyy),
+			Number(MM) - 1,
+			Number(dd),
+			Number(HH),
+			Number(mm),
+			Number(ss),
+		);
+		const ticks = (
+			BigInt(utcMs) * BigInt(10000) +
+			BigInt(621355968000000000)
+		).toString();
+
+		return {
+			yyyy,
+			MM,
+			dd,
+			HH,
+			mm,
+			ss,
+			fff: "000",
+			unixSeconds: Math.floor(utcMs / 1000).toString(),
+			unixMs: utcMs.toString(),
+			ticks,
+			iso: `${yyyy}-${MM}-${dd}T${HH}:${mm}:${ss}Z`,
+		};
+	}, [options.startTimestamp]);
+
+	// Format a numeric value using options.decimalPrecision & options.decimalSeparator
+	const formatSampleValue = useCallback(
+		(num: number) => {
+			const precision = Math.max(
+				0,
+				Math.min(10, Number(options.decimalPrecision) || 0),
+			);
+			const fixed = num.toFixed(precision);
+			return options.decimalSeparator === ","
+				? fixed.replace(".", ",")
+				: fixed;
+		},
+		[options.decimalPrecision, options.decimalSeparator],
+	);
+
+	// Apply active rowTemplate to produce a formatted row string
+	const applyRowTemplate = useCallback(
+		(
+			template: string,
+			formattedDate: string,
+			formattedTime: string,
+			formattedDateTime: string,
+			ticks: string,
+			formattedVal: string,
+		) => {
+			const escapeRegex = (s: string) =>
+				s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+			let out = template
+				.replace(/\{tab\}/g, "\t")
+				.replace(/\{ticks\}/g, ticks)
+				.replace(/\{value\}/g, formattedVal);
+
+			if (options.separateDateTimeColumns) {
+				out = out
+					.replace(
+						new RegExp(
+							`\\{${escapeRegex(options.dateFormat)}\\}`,
+							"g",
+						),
+						formattedDate,
+					)
+					.replace(
+						new RegExp(
+							`\\{${escapeRegex(options.timeFormat)}\\}`,
+							"g",
+						),
+						formattedTime,
+					);
+			} else {
+				out = out.replace(
+					new RegExp(
+						`\\{${escapeRegex(options.dateTimeFormat)}\\}`,
+						"g",
+					),
+					formattedDateTime,
+				);
+			}
+
+			return out;
+		},
+		[
+			options.separateDateTimeColumns,
+			options.dateFormat,
+			options.timeFormat,
+			options.dateTimeFormat,
+		],
+	);
+
+	// Live preview string computed dynamically whenever ANY field changes
+	const liveSampleOutput = useMemo(() => {
+		const activeTemplate = rowTemplate || buildDefaultTemplate(options);
+		const formattedDate = formatByPattern(
+			options.dateFormat,
+			sampleTimestampParts,
+		);
+		const formattedTime = formatByPattern(
+			options.timeFormat,
+			sampleTimestampParts,
+		);
+		const formattedDateTime = formatByPattern(
+			options.dateTimeFormat,
+			sampleTimestampParts,
+		);
+
+		const sampleNumeric = options.generateRandomValues
+			? (Number(options.randomValueMin || 0) +
+					Number(options.randomValueMax || 100)) /
+				2
+			: Number(options.fixedValue || 0);
+
+		const formattedVal = formatSampleValue(sampleNumeric);
+		const dataLine = applyRowTemplate(
+			activeTemplate,
+			formattedDate,
+			formattedTime,
+			formattedDateTime,
+			sampleTimestampParts.ticks,
+			formattedVal,
+		);
+
+		if (!options.addHeader) return dataLine;
+
+		const { char: delimChar } = getSeparatorInfo(options.csvSeparator);
+		const headers: string[] = options.separateDateTimeColumns
+			? [
+					options.dateColumnName || "Date",
+					options.timeColumnName || "Time",
+				]
+			: [options.timestampColumnName || "Timestamp"];
+
+		if (options.addTicks) {
+			headers.push(options.ticksColumnName || "Ticks");
+		}
+		headers.push(options.valueColumnName || "Value");
+
+		return `${headers.join(delimChar)}\n${dataLine}`;
+	}, [
+		rowTemplate,
+		buildDefaultTemplate,
+		options,
+		formatByPattern,
+		sampleTimestampParts,
+		formatSampleValue,
+		applyRowTemplate,
+		getSeparatorInfo,
+	]);
+
+	// On-demand CSV generation trigger (applies custom rowTemplate if edited)
+	const handleGeneratePreview = useCallback(() => {
+		setError("");
+		setIsGenerating(true);
+
+		setTimeout(() => {
+			try {
+				const generated = generateTimeseriesCsv(options);
+				const defaultTpl = buildDefaultTemplate(options);
+				const activeTpl = rowTemplate || defaultTpl;
+
+				// If user customized the row pattern (e.g., added quotes around "{value}" or extra text),
+				// transform generated data rows to match the pattern
+				if (isCustomTemplate && activeTpl !== defaultTpl) {
+					const { char: delimChar } = getSeparatorInfo(
+						options.csvSeparator,
+					);
+					const lines = generated.csvContent.split("\n");
+					const startIdx = options.addHeader ? 1 : 0;
+
+					const transformedLines = lines.map((line, idx) => {
+						if (idx < startIdx || !line.trim()) return line;
+						const cols = line.split(delimChar);
+
+						let colIdx = 0;
+						let dateCol = "";
+						let timeCol = "";
+						let dateTimeCol = "";
+						let ticksCol = "";
+
+						if (options.separateDateTimeColumns) {
+							dateCol = cols[colIdx++] ?? "";
+							timeCol = cols[colIdx++] ?? "";
+						} else {
+							dateTimeCol = cols[colIdx++] ?? "";
+						}
+
+						if (options.addTicks) {
+							ticksCol = cols[colIdx++] ?? "";
+						}
+
+						const valCol = cols[colIdx] ?? "";
+						return applyRowTemplate(
+							activeTpl,
+							dateCol,
+							timeCol,
+							dateTimeCol,
+							ticksCol,
+							valCol,
+						);
+					});
+
+					const updatedCsv = transformedLines.join("\n");
+					setResult({
+						...generated,
+						csvContent: updatedCsv,
+						previewRows: transformedLines.slice(
+							0,
+							generated.previewRows.length,
+						),
+						fileSizeBytes: new Blob([updatedCsv]).size,
+					});
+				} else {
+					setResult(generated);
+				}
+			} catch (err: any) {
+				setError(err?.message || "Failed to generate CSV data.");
+				setResult(null);
+			} finally {
+				setIsGenerating(false);
+			}
+		}, 10);
+	}, [
+		options,
+		rowTemplate,
+		isCustomTemplate,
+		buildDefaultTemplate,
+		getSeparatorInfo,
+		applyRowTemplate,
+	]);
+
+	const handleDownload = () => {
+		if (!result) return;
+		const blob = new Blob([result.csvContent], {
+			type: "text/csv;charset=utf-8;",
+		});
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.href = url;
+		link.setAttribute("download", options.fileName || "timeseries.csv");
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		URL.revokeObjectURL(url);
+	};
+
+	const handleExportConfig = () => {
+		const jsonStr = JSON.stringify({ ...options, rowTemplate }, null, 2);
+		const blob = new Blob([jsonStr], { type: "application/json" });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.href = url;
+		link.setAttribute("download", "timeseries_config.json");
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		URL.revokeObjectURL(url);
+	};
+
+	const formatSize = (bytes: number) => {
+		if (bytes < 1024) return `${bytes} B`;
+		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+		return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+	};
+
+	const separatorInfo = getSeparatorInfo(options.csvSeparator);
+	const availableTokens = options.separateDateTimeColumns
+		? [
+				`{${options.dateFormat}}`,
+				`{${options.timeFormat}}`,
+				"{tab}",
+				"{value}",
+				'"{value}"',
+				...(options.addTicks ? ["{ticks}"] : []),
+			]
+		: [
+				`{${options.dateTimeFormat}}`,
+				"{tab}",
+				"{value}",
+				'"{value}"',
+				...(options.addTicks ? ["{ticks}"] : []),
+			];
+
+	return (
+		<div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+			{/* Panel Header */}
+			<div
+				style={{
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "space-between",
+					flexWrap: "wrap",
+					gap: "12px",
+				}}
+			>
+				<div>
+					<h2
+						style={{
+							fontFamily: "var(--font-display)",
+							fontSize: "20px",
+							fontWeight: 700,
+							color: "#1C1B1F",
+							letterSpacing: "-0.01em",
+						}}
+					>
+						Time-Series CSV Generator
+					</h2>
+					<p
+						style={{
+							fontSize: "13px",
+							color: "var(--secondary)",
+							marginTop: "4px",
+						}}
+					>
+						Configure range, formatting, delimiters, and DST
+						settings to export structured time-series data.
+					</p>
+				</div>
+
+				<div style={{ display: "flex", gap: "8px" }}>
+					<button
+						type="button"
+						onClick={() => {
+							setOptions(DEFAULT_TIMESERIES_OPTIONS);
+							setIsCustomTemplate(false);
+							setRowTemplate(
+								buildDefaultTemplate(
+									DEFAULT_TIMESERIES_OPTIONS,
+								),
+							);
+							setResult(null);
+							setError("");
+						}}
+						className="btn-outlined"
+						style={{ padding: "6px 14px", fontSize: "12px" }}
+					>
+						Reset Defaults
+					</button>
+					<button
+						type="button"
+						onClick={handleExportConfig}
+						className="btn-tonal"
+						style={{ padding: "6px 14px", fontSize: "12px" }}
+					>
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2"
+						>
+							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+							<polyline points="7 10 12 15 17 10" />
+							<line x1="12" y1="15" x2="12" y2="3" />
+						</svg>
+						Export JSON
+					</button>
+				</div>
+			</div>
+
+			<div className="divider" />
+
+			{/* Form Options Grid */}
+			<div
+				style={{
+					display: "grid",
+					gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+					gap: "20px",
+				}}
+			>
+				{/* 1. Time-Series Range & Zone */}
+				<div
+					style={{
+						background: "var(--surface-1)",
+						borderRadius: "20px",
+						padding: "20px",
+						display: "flex",
+						flexDirection: "column",
+						gap: "14px",
+						border: "1px solid var(--outline-variant)",
+					}}
+				>
+					<div
+						style={{
+							fontSize: "11px",
+							fontWeight: 700,
+							letterSpacing: "0.08em",
+							textTransform: "uppercase",
+							color: "var(--primary)",
+							display: "flex",
+							alignItems: "center",
+							gap: "6px",
+						}}
+					>
+						<svg
+							width="15"
+							height="15"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2"
+						>
+							<rect
+								x="3"
+								y="4"
+								width="18"
+								height="18"
+								rx="2"
+								ry="2"
+							/>
+							<line x1="16" y1="2" x2="16" y2="6" />
+							<line x1="8" y1="2" x2="8" y2="6" />
+							<line x1="3" y1="10" x2="21" y2="10" />
+						</svg>
+						Time Range &amp; Zone
+					</div>
+
+					<div>
+						<label
+							style={{
+								fontSize: "11px",
+								fontWeight: 600,
+								color: "var(--secondary)",
+								display: "block",
+								marginBottom: "4px",
+							}}
+						>
+							Start Timestamp
+						</label>
+						<input
+							type="datetime-local"
+							step="1"
+							value={options.startTimestamp}
+							onChange={(e) =>
+								updateOption("startTimestamp", e.target.value)
+							}
+							style={{
+								width: "100%",
+								padding: "10px 14px",
+								borderRadius: "10px",
+								border: "1px solid var(--outline-variant)",
+								fontFamily: "var(--font-mono)",
+								fontSize: "13px",
+								background: "white",
+							}}
+						/>
+					</div>
+
+					<div>
+						<label
+							style={{
+								fontSize: "11px",
+								fontWeight: 600,
+								color: "var(--secondary)",
+								display: "block",
+								marginBottom: "4px",
+							}}
+						>
+							End Timestamp
+						</label>
+						<input
+							type="datetime-local"
+							step="1"
+							value={options.endTimestamp}
+							onChange={(e) =>
+								updateOption("endTimestamp", e.target.value)
+							}
+							style={{
+								width: "100%",
+								padding: "10px 14px",
+								borderRadius: "10px",
+								border: "1px solid var(--outline-variant)",
+								fontFamily: "var(--font-mono)",
+								fontSize: "13px",
+								background: "white",
+							}}
+						/>
+					</div>
+
+					<div>
+						<label
+							style={{
+								fontSize: "11px",
+								fontWeight: 600,
+								color: "var(--secondary)",
+								display: "block",
+								marginBottom: "6px",
+							}}
+						>
+							Interval (Minutes)
+						</label>
+						<div
+							style={{
+								display: "flex",
+								flexWrap: "wrap",
+								gap: "8px",
+								alignItems: "center",
+							}}
+						>
+							<div
+								style={{ position: "relative", width: "180px" }}
+							>
+								<input
+									type="number"
+									min="1"
+									value={options.intervalMinutes}
+									onChange={(e) =>
+										updateOption(
+											"intervalMinutes",
+											parseInt(e.target.value) || 1,
+										)
+									}
+									style={{
+										width: "100%",
+										padding: "10px 65px 10px 12px",
+										borderRadius: "10px",
+										border: "1px solid var(--outline-variant)",
+										fontFamily: "var(--font-mono)",
+										fontSize: "13px",
+										background: "white",
+									}}
+								/>
+
+								<span
+									style={{
+										position: "absolute",
+										right: "12px",
+										top: "50%",
+										transform: "translateY(-50%)",
+										color: "var(--secondary)",
+										fontSize: "12px",
+										pointerEvents: "none",
+										fontWeight: 500,
+									}}
+								>
+									minutes
+								</span>
+							</div>
+							{INTERVAL_OPTIONS.map((option) => (
+								<button
+									key={option.value}
+									type="button"
+									onClick={() =>
+										updateOption(
+											"intervalMinutes",
+											option.value,
+										)
+									}
+									style={{
+										minWidth: "55px",
+										height: "40px",
+										padding: "0 10px",
+										flexShrink: 0,
+										borderRadius: "10px",
+										border: `1px solid ${
+											options.intervalMinutes ===
+											option.value
+												? "var(--primary)"
+												: "var(--outline-variant)"
+										}`,
+										background:
+											options.intervalMinutes ===
+											option.value
+												? "var(--primary-container)"
+												: "white",
+										color:
+											options.intervalMinutes ===
+											option.value
+												? "var(--on-primary-container)"
+												: "var(--secondary)",
+										fontSize: "12px",
+										fontWeight: 600,
+										cursor: "pointer",
+									}}
+								>
+									{option.label}
+								</button>
+							))}
+						</div>
+					</div>
+
+					<div>
+						<label
+							style={{
+								fontSize: "11px",
+								fontWeight: 600,
+								color: "var(--secondary)",
+								display: "block",
+								marginBottom: "4px",
+							}}
+						>
+							Time Zone
+						</label>
+						<div className="select-wrapper">
+							<select
+								value={options.timeZone}
+								onChange={(e) =>
+									updateOption("timeZone", e.target.value)
+								}
+								style={{
+									width: "100%",
+									padding: "10px 36px 10px 14px",
+									borderRadius: "10px",
+									border: "1px solid var(--outline-variant)",
+									fontSize: "13px",
+									background: "white",
+									appearance: "none",
+								}}
+							>
+								{TIMEZONES.map((tz) => (
+									<option key={tz.value} value={tz.value}>
+										{tz.label}
+									</option>
+								))}
+							</select>
+						</div>
+					</div>
+				</div>
+
+				{/* 2. Timestamp & Formatting */}
+				<div
+					style={{
+						background: "var(--surface-1)",
+						borderRadius: "20px",
+						padding: "20px",
+						display: "flex",
+						flexDirection: "column",
+						gap: "14px",
+						border: "1px solid var(--outline-variant)",
+					}}
+				>
+					<div
+						style={{
+							fontSize: "11px",
+							fontWeight: 700,
+							letterSpacing: "0.08em",
+							textTransform: "uppercase",
+							color: "var(--blue)",
+							display: "flex",
+							alignItems: "center",
+							gap: "6px",
+						}}
+					>
+						<svg
+							width="15"
+							height="15"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2"
+						>
+							<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+							<polyline points="14 2 14 8 20 8" />
+							<line x1="16" y1="13" x2="8" y2="13" />
+							<line x1="16" y1="17" x2="8" y2="17" />
+						</svg>
+						Timestamp &amp; Delimiters
+					</div>
+
+					<Switch
+						label="Separate Date & Time Columns"
+						description="Output distinct columns for Date and Time instead of single Timestamp"
+						checked={options.separateDateTimeColumns}
+						onChange={(v) =>
+							updateOption("separateDateTimeColumns", v)
+						}
+					/>
+					{options.separateDateTimeColumns ? (
+						<div
+							style={{
+								display: "grid",
+								gridTemplateColumns:
+									"repeat(auto-fit, minmax(180px, 1fr))",
+								gap: "12px",
+								alignItems: "start",
+							}}
+						>
+							<FormatSelector
+								label="Date Format"
+								value={options.dateFormat}
+								presets={DATE_FORMAT_PRESETS}
+								customDefault="yyyy/MM/dd"
+								onChange={(val) =>
+									updateOption("dateFormat", val)
+								}
+							/>
+							<FormatSelector
+								label="Time Format"
+								value={options.timeFormat}
+								presets={TIME_FORMAT_PRESETS}
+								customDefault="HH:mm:ss.fff"
+								onChange={(val) =>
+									updateOption("timeFormat", val)
+								}
+							/>
+						</div>
+					) : (
+						<FormatSelector
+							label="DateTime Format"
+							value={options.dateTimeFormat}
+							presets={DATETIME_FORMAT_PRESETS}
+							customDefault="yyyy-MM-dd HH:mm:ss"
+							onChange={(val) =>
+								updateOption("dateTimeFormat", val)
+							}
+						/>
+					)}
+					<div
+						style={{
+							display: "grid",
+							gridTemplateColumns: "1fr 1fr",
+							gap: "12px",
+						}}
+					>
+						<div>
+							<label
+								style={{
+									fontSize: "11px",
+									fontWeight: 600,
+									color: "var(--secondary)",
+									display: "block",
+									marginBottom: "4px",
+								}}
+							>
+								CSV Delimiter
+							</label>
+							<select
+								value={options.csvSeparator}
+								onChange={(e) =>
+									updateOption("csvSeparator", e.target.value)
+								}
+								style={{
+									width: "100%",
+									padding: "10px 12px",
+									borderRadius: "10px",
+									border: "1px solid var(--outline-variant)",
+									fontSize: "13px",
+									background: "white",
+								}}
+							>
+								<option value="\t">Tab (\t)</option>
+								<option value=",">Comma (,)</option>
+								<option value=";">Semicolon (;)</option>
+							</select>
+						</div>
+
+						<div>
+							<label
+								style={{
+									fontSize: "11px",
+									fontWeight: 600,
+									color: "var(--secondary)",
+									display: "block",
+									marginBottom: "4px",
+								}}
+							>
+								Decimal Mark
+							</label>
+							<select
+								value={options.decimalSeparator}
+								onChange={(e) =>
+									updateOption(
+										"decimalSeparator",
+										e.target.value,
+									)
+								}
+								style={{
+									width: "100%",
+									padding: "10px 12px",
+									borderRadius: "10px",
+									border: "1px solid var(--outline-variant)",
+									fontSize: "13px",
+									background: "white",
+								}}
+							>
+								<option value=".">Dot (.)</option>
+								<option value=",">Comma (,)</option>
+							</select>
+						</div>
+					</div>
+
+					<Switch
+						label="Include Header Row"
+						checked={options.addHeader}
+						onChange={(v) => updateOption("addHeader", v)}
+					/>
+					<Switch
+						label="Include .NET Ticks Column"
+						description="Add high-precision 100-ns tick timestamp column"
+						checked={options.addTicks}
+						onChange={(v) => updateOption("addTicks", v)}
+					/>
+				</div>
+
+				{/* 3. Columns & Output Settings */}
+				<div
+					style={{
+						background: "var(--surface-1)",
+						borderRadius: "20px",
+						padding: "20px",
+						display: "flex",
+						flexDirection: "column",
+						gap: "14px",
+						border: "1px solid var(--outline-variant)",
+					}}
+				>
+					<div
+						style={{
+							fontSize: "11px",
+							fontWeight: 700,
+							letterSpacing: "0.08em",
+							textTransform: "uppercase",
+							color: "var(--green)",
+							display: "flex",
+							alignItems: "center",
+							gap: "6px",
+						}}
+					>
+						<svg
+							width="15"
+							height="15"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2"
+						>
+							<line x1="12" y1="20" x2="12" y2="10" />
+							<line x1="18" y1="20" x2="18" y2="4" />
+							<line x1="6" y1="20" x2="6" y2="16" />
+						</svg>
+						Columns &amp; Values
+					</div>
+
+					<div
+						style={{
+							display: "grid",
+							gridTemplateColumns: "1fr 1fr",
+							gap: "10px",
+						}}
+					>
+						{options.separateDateTimeColumns ? (
+							<>
+								<div>
+									<label
+										style={{
+											fontSize: "11px",
+											fontWeight: 600,
+											color: "var(--secondary)",
+											display: "block",
+											marginBottom: "4px",
+										}}
+									>
+										Date Col Name
+									</label>
+									<input
+										type="text"
+										value={options.dateColumnName}
+										onChange={(e) =>
+											updateOption(
+												"dateColumnName",
+												e.target.value,
+											)
+										}
+										style={{
+											width: "100%",
+											padding: "8px 12px",
+											borderRadius: "8px",
+											border: "1px solid var(--outline-variant)",
+											fontSize: "13px",
+											background: "white",
+										}}
+									/>
+								</div>
+								<div>
+									<label
+										style={{
+											fontSize: "11px",
+											fontWeight: 600,
+											color: "var(--secondary)",
+											display: "block",
+											marginBottom: "4px",
+										}}
+									>
+										Time Col Name
+									</label>
+									<input
+										type="text"
+										value={options.timeColumnName}
+										onChange={(e) =>
+											updateOption(
+												"timeColumnName",
+												e.target.value,
+											)
+										}
+										style={{
+											width: "100%",
+											padding: "8px 12px",
+											borderRadius: "8px",
+											border: "1px solid var(--outline-variant)",
+											fontSize: "13px",
+											background: "white",
+										}}
+									/>
+								</div>
+							</>
+						) : (
+							<div style={{ gridColumn: "span 2" }}>
+								<label
+									style={{
+										fontSize: "11px",
+										fontWeight: 600,
+										color: "var(--secondary)",
+										display: "block",
+										marginBottom: "4px",
+									}}
+								>
+									Timestamp Col Name
+								</label>
+								<input
+									type="text"
+									value={options.timestampColumnName}
+									onChange={(e) =>
+										updateOption(
+											"timestampColumnName",
+											e.target.value,
+										)
+									}
+									style={{
+										width: "100%",
+										padding: "8px 12px",
+										borderRadius: "8px",
+										border: "1px solid var(--outline-variant)",
+										fontSize: "13px",
+										background: "white",
+									}}
+								/>
+							</div>
+						)}
+
+						<div>
+							<label
+								style={{
+									fontSize: "11px",
+									fontWeight: 600,
+									color: "var(--secondary)",
+									display: "block",
+									marginBottom: "4px",
+								}}
+							>
+								Value Col Name
+							</label>
+							<input
+								type="text"
+								value={options.valueColumnName}
+								onChange={(e) =>
+									updateOption(
+										"valueColumnName",
+										e.target.value,
+									)
+								}
+								style={{
+									width: "100%",
+									padding: "8px 12px",
+									borderRadius: "8px",
+									border: "1px solid var(--outline-variant)",
+									fontSize: "13px",
+									background: "white",
+								}}
+							/>
+						</div>
+
+						{options.addTicks && (
+							<div>
+								<label
+									style={{
+										fontSize: "11px",
+										fontWeight: 600,
+										color: "var(--secondary)",
+										display: "block",
+										marginBottom: "4px",
+									}}
+								>
+									Ticks Col Name
+								</label>
+								<input
+									type="text"
+									value={options.ticksColumnName}
+									onChange={(e) =>
+										updateOption(
+											"ticksColumnName",
+											e.target.value,
+										)
+									}
+									style={{
+										width: "100%",
+										padding: "8px 12px",
+										borderRadius: "8px",
+										border: "1px solid var(--outline-variant)",
+										fontSize: "13px",
+										background: "white",
+									}}
+								/>
+							</div>
+						)}
+					</div>
+					<div>
+						<label
+							style={{
+								fontSize: "11px",
+								fontWeight: 600,
+								color: "var(--secondary)",
+								display: "block",
+								marginBottom: "4px",
+							}}
+						>
+							Decimal Precision
+						</label>
+
+						<input
+							type="number"
+							min="0"
+							max="10"
+							value={options.decimalPrecision}
+							onChange={(e) =>
+								updateOption(
+									"decimalPrecision",
+									Math.max(
+										0,
+										Math.min(
+											10,
+											parseInt(e.target.value) || 0,
+										),
+									),
+								)
+							}
+							style={{
+								width: "100%",
+								padding: "10px 14px",
+								borderRadius: "10px",
+								border: "1px solid var(--outline-variant)",
+								fontFamily: "var(--font-mono)",
+								fontSize: "13px",
+								background: "white",
+							}}
+						/>
+
+						<div
+							style={{
+								fontSize: "11px",
+								color: "var(--secondary)",
+								marginTop: "4px",
+							}}
+						>
+							Number of digits to display after the decimal point
+							(0–10).
+						</div>
+					</div>
+					<Switch
+						label="Generate Random Values"
+						description="Generate values within min-max range instead of fixed value"
+						checked={options.generateRandomValues}
+						onChange={(v) =>
+							updateOption("generateRandomValues", v)
+						}
+					/>
+
+					{options.generateRandomValues ? (
+						<div
+							style={{
+								display: "grid",
+								gridTemplateColumns: "1fr 1fr",
+								gap: "10px",
+							}}
+						>
+							<div>
+								<label
+									style={{
+										fontSize: "11px",
+										fontWeight: 600,
+										color: "var(--secondary)",
+										display: "block",
+										marginBottom: "4px",
+									}}
+								>
+									Random Min
+								</label>
+								<input
+									type="number"
+									step="any"
+									value={options.randomValueMin}
+									onChange={(e) =>
+										updateOption(
+											"randomValueMin",
+											parseFloat(e.target.value) || 0,
+										)
+									}
+									style={{
+										width: "100%",
+										padding: "8px 12px",
+										borderRadius: "8px",
+										border: "1px solid var(--outline-variant)",
+										fontFamily: "var(--font-mono)",
+										fontSize: "13px",
+										background: "white",
+									}}
+								/>
+							</div>
+							<div>
+								<label
+									style={{
+										fontSize: "11px",
+										fontWeight: 600,
+										color: "var(--secondary)",
+										display: "block",
+										marginBottom: "4px",
+									}}
+								>
+									Random Max
+								</label>
+								<input
+									type="number"
+									step="any"
+									value={options.randomValueMax}
+									onChange={(e) =>
+										updateOption(
+											"randomValueMax",
+											parseFloat(e.target.value) || 0,
+										)
+									}
+									style={{
+										width: "100%",
+										padding: "8px 12px",
+										borderRadius: "8px",
+										border: "1px solid var(--outline-variant)",
+										fontFamily: "var(--font-mono)",
+										fontSize: "13px",
+										background: "white",
+									}}
+								/>
+							</div>
+						</div>
+					) : (
+						<div>
+							<label
+								style={{
+									fontSize: "11px",
+									fontWeight: 600,
+									color: "var(--secondary)",
+									display: "block",
+									marginBottom: "4px",
+								}}
+							>
+								Fixed Constant Value
+							</label>
+							<input
+								type="number"
+								step="any"
+								value={options.fixedValue}
+								onChange={(e) =>
+									updateOption(
+										"fixedValue",
+										parseFloat(e.target.value) || 0,
+									)
+								}
+								style={{
+									width: "100%",
+									padding: "8px 12px",
+									borderRadius: "8px",
+									border: "1px solid var(--outline-variant)",
+									fontFamily: "var(--font-mono)",
+									fontSize: "13px",
+									background: "white",
+								}}
+							/>
+						</div>
+					)}
+					<div style={{ marginTop: "4px" }}>
+						<label
+							style={{
+								fontSize: "11px",
+								fontWeight: 600,
+								color: "var(--secondary)",
+								display: "block",
+								marginBottom: "4px",
+							}}
+						>
+							Output File Name
+						</label>
+						<input
+							type="text"
+							value={options.fileName}
+							onChange={(e) =>
+								updateOption("fileName", e.target.value)
+							}
+							style={{
+								width: "100%",
+								padding: "8px 12px",
+								borderRadius: "8px",
+								border: "1px solid var(--outline-variant)",
+								fontFamily: "var(--font-mono)",
+								fontSize: "13px",
+								background: "white",
+							}}
+						/>
+					</div>
+				</div>
+			</div>
+
+			{/* 4. Dynamic Row Output Pattern & Live CSV Preview */}
+			<div
+				style={{
+					background: "var(--surface-1)",
+					borderRadius: "20px",
+					padding: "20px 24px",
+					border: "1px solid var(--outline-variant)",
+					display: "flex",
+					flexDirection: "column",
+					gap: "12px",
+				}}
+			>
+				<div
+					style={{
+						display: "flex",
+						justifyContent: "space-between",
+						alignItems: "center",
+						flexWrap: "wrap",
+						gap: "8px",
+					}}
+				>
+					<div
+						style={{
+							fontSize: "13px",
+							fontWeight: 700,
+							color: "#1C1B1F",
+							display: "flex",
+							alignItems: "center",
+							gap: "8px",
+						}}
+					>
+						<span>📝 Row Output Pattern (Editable)</span>
+						{isCustomTemplate && (
+							<span
+								style={{
+									fontSize: "11px",
+									padding: "2px 8px",
+									borderRadius: "999px",
+									background: "var(--primary)",
+									color: "white",
+									fontWeight: 600,
+								}}
+							>
+								Custom
+							</span>
+						)}
+					</div>
+
+					{isCustomTemplate && (
+						<button
+							type="button"
+							onClick={() => {
+								setIsCustomTemplate(false);
+								setRowTemplate(buildDefaultTemplate(options));
+							}}
+							style={{
+								background: "transparent",
+								border: "none",
+								color: "var(--primary)",
+								fontSize: "12px",
+								fontWeight: 600,
+								cursor: "pointer",
+								textDecoration: "underline",
+							}}
+						>
+							Reset Pattern
+						</button>
+					)}
+				</div>
+
+				<input
+					type="text"
+					spellCheck={false}
+					value={rowTemplate}
+					onChange={(e) => {
+						setIsCustomTemplate(true);
+						setRowTemplate(e.target.value);
+					}}
+					placeholder='{yyyy-MM-dd HH:mm:ss}{tab}"{value}"'
+					style={{
+						width: "100%",
+						padding: "12px 16px",
+						borderRadius: "12px",
+						border: "1px solid var(--outline-variant)",
+						background: "white",
+						fontFamily: "var(--font-mono)",
+						fontSize: "14px",
+						color: "#1C1B1F",
+						outline: "none",
+					}}
+				/>
+
+				<div
+					style={{
+						display: "flex",
+						justifyContent: "space-between",
+						alignItems: "center",
+						flexWrap: "wrap",
+						gap: "12px",
+					}}
+				>
+					{/* Dynamic Token Chips */}
+					<div
+						style={{
+							display: "flex",
+							alignItems: "center",
+							gap: "6px",
+							flexWrap: "wrap",
+						}}
+					>
+						<span
+							style={{
+								fontSize: "12px",
+								color: "var(--secondary)",
+							}}
+						>
+							Insert token:
+						</span>
+						{availableTokens.map((token) => (
+							<button
+								key={token}
+								type="button"
+								onClick={() => {
+									setIsCustomTemplate(true);
+									setRowTemplate((prev) => prev + token);
+								}}
+								style={{
+									padding: "4px 10px",
+									fontSize: "12px",
+									fontFamily: "var(--font-mono)",
+									borderRadius: "8px",
+									border: "1px solid var(--outline-variant)",
+									background: "white",
+									cursor: "pointer",
+									color: "#1C1B1F",
+								}}
+							>
+								{token}
+							</button>
+						))}
+					</div>
+
+					{/* Live CSV Row Preview */}
+					<div
+						style={{
+							padding: "10px 14px",
+							borderRadius: "12px",
+							background: "var(--primary-container)",
+							border: "1px solid var(--outline-variant)",
+							minWidth: "250px",
+						}}
+					>
+						<div
+							style={{
+								fontSize: "10px",
+								fontWeight: 700,
+								letterSpacing: "0.06em",
+								color: "var(--secondary)",
+								marginBottom: "4px",
+							}}
+						>
+							LIVE CSV ROW LOOK ({separatorInfo.label})
+						</div>
+						<pre
+							style={{
+								margin: 0,
+								fontFamily: "var(--font-mono)",
+								fontSize: "13px",
+								color: "var(--on-primary-container)",
+								whiteSpace: "pre",
+								tabSize: 4,
+							}}
+						>
+							{liveSampleOutput}
+						</pre>
+					</div>
+				</div>
+			</div>
+
+			{/* Action Trigger Button */}
+			<div
+				style={{
+					display: "flex",
+					justifyContent: "center",
+					marginTop: "8px",
+				}}
+			>
+				<button
+					type="button"
+					onClick={handleGeneratePreview}
+					disabled={isGenerating}
+					style={{
+						padding: "12px 28px",
+						borderRadius: "14px",
+						border: "none",
+						background: "var(--primary)",
+						color: "white",
+						fontSize: "14px",
+						fontWeight: 600,
+						cursor: isGenerating ? "not-allowed" : "pointer",
+						boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+						display: "inline-flex",
+						alignItems: "center",
+						gap: "8px",
+						opacity: isGenerating ? 0.7 : 1,
+					}}
+				>
+					<svg
+						width="18"
+						height="18"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+					>
+						<polygon points="5 3 19 12 5 21 5 3" />
+					</svg>
+					{isGenerating ? "Generating..." : "Generate Preview"}
+				</button>
+			</div>
+
+			{error && (
+				<div
+					style={{
+						padding: "12px 16px",
+						background: "#FDF2F2",
+						border: "1px solid #F87171",
+						borderRadius: "12px",
+						color: "#991B1B",
+						fontSize: "13px",
+					}}
+				>
+					⚠️ {error}
+				</div>
+			)}
+
+			{/* Result Preview Section */}
+			{result && (
+				<div
+					style={{
+						background: "white",
+						borderRadius: "20px",
+						padding: "24px",
+						border: "1.5px solid var(--primary-container)",
+						boxShadow: "var(--shadow-md)",
+					}}
+				>
+					<div
+						style={{
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "space-between",
+							flexWrap: "wrap",
+							gap: "12px",
+							marginBottom: "16px",
+						}}
+					>
+						<div>
+							<div
+								style={{
+									fontSize: "16px",
+									fontWeight: 700,
+									color: "#1C1B1F",
+									display: "flex",
+									alignItems: "center",
+									gap: "8px",
+								}}
+							>
+								<span>Generated Output Preview</span>
+								<span
+									style={{
+										fontSize: "12px",
+										fontWeight: 600,
+										padding: "2px 8px",
+										borderRadius: "100px",
+										background: "var(--green-container)",
+										color: "var(--green)",
+									}}
+								>
+									{result.rowCount.toLocaleString()} Rows
+								</span>
+								<span
+									style={{
+										fontSize: "12px",
+										fontWeight: 500,
+										color: "var(--secondary)",
+									}}
+								>
+									({formatSize(result.fileSizeBytes)})
+								</span>
+							</div>
+							<div
+								style={{
+									fontSize: "12px",
+									color: "var(--secondary)",
+									marginTop: "2px",
+								}}
+							>
+								Showing first {result.previewRows.length} lines
+								preview
+							</div>
+						</div>
+
+						<div style={{ display: "flex", gap: "10px" }}>
+							<CopyButton text={result.csvContent} />
+							<button
+								type="button"
+								onClick={handleDownload}
+								className="btn-primary"
+								style={{
+									padding: "10px 20px",
+									background: "var(--primary)",
+								}}
+							>
+								<svg
+									width="16"
+									height="16"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+								>
+									<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+									<polyline points="7 10 12 15 17 10" />
+									<line x1="12" y1="15" x2="12" y2="3" />
+								</svg>
+								Download CSV
+							</button>
+						</div>
+					</div>
+
+					<pre
+						style={{
+							background: "var(--surface-1)",
+							border: "1px solid var(--outline-variant)",
+							borderRadius: "14px",
+							padding: "16px",
+							fontFamily: "var(--font-mono)",
+							fontSize: "12.5px",
+							lineHeight: "1.6",
+							color: "#1C1B1F",
+							overflowX: "auto",
+							maxHeight: "280px",
+							whiteSpace: "pre",
+						}}
+					>
+						{result.previewRows.join("\n")}
+						{result.rowCount > result.previewRows.length && (
+							<span
+								style={{
+									color: "var(--secondary)",
+									fontStyle: "italic",
+								}}
+							>
+								{"\n"}... (
+								{result.rowCount - result.previewRows.length}{" "}
+								more rows hidden in preview)
+							</span>
+						)}
+					</pre>
+				</div>
+			)}
+		</div>
+	);
+};
 
 export default TimeseriesGenerator;
